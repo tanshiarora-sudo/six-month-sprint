@@ -66,10 +66,11 @@ input, select { font: inherit; color: inherit; }
 
 /* Cards & grid */
 .grid { display: grid; gap: 16px; }
-.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cols-3 { grid-template-columns: repeat(3, 1fr); grid-auto-flow: dense; }
 .cols-2 { grid-template-columns: repeat(2, 1fr); }
 .span-2 { grid-column: span 2; }
-@media (max-width: 920px) { .cols-3, .cols-2 { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } }
+.span-3 { grid-column: 1 / -1; }
+@media (max-width: 920px) { .cols-3, .cols-2 { grid-template-columns: 1fr; } .span-2, .span-3 { grid-column: span 1; } }
 
 .card { background: var(--card); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
 .card h3 { margin: 0 0 4px; font-size: 15px; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }

@@ -29,10 +29,10 @@ or just double-click `index.html` (works over `file://` in Chrome/Safari).
 
 ## Tabs
 
-- **Today**: one-tap daily logging. Wake-up, office status, gym, vitamins, diet (type "2 eggs and 1 scoop whey" and macros are estimated from a built-in 130-item Indian food database), QA questions per chapter, DILR sets, RCs, Aeon essay.
+- **Today**: one-tap daily logging with a "today's overall score" ring (weekly average shown alongside). Wake-up, office status, gym (with class type: Legs, Arms and Chest, Chest and Back, Full Body Burn, Yoga, Dance Fitness), vitamins, diet split into Breakfast / Lunch / Evening Snacks / Dinner (type "rice and rajma" and it logs two separate items with macros from a built-in 130-item Indian food database), a dedicated QA window (chapter logging now, detailed module planned), and a study log: DILR sets, RCs, Aeon essay or Norman Lewis vocab pages (either satisfies the same daily reading slot).
 - **Study**: QA chapter manager (total, done, % complete, remaining, required pace/day, projected finish date from your last-14-day pace), DILR and VARC weekly history.
 - **Dashboard**: daily activity flow, weekly rhythm radar, weekly totals, month heatmap, ranked categories.
-- **Reports**: auto-generated Weekly Report (category deltas vs last week, Weekly Wins, Areas to Improve, Next Week Focus) and Monthly Report (trends vs previous month, week-by-week, momentum).
+- **Reports**: toggle between the Weekly Report (category deltas vs last week, Weekly Wins, Areas to Improve, Next Week Focus) and the Monthly Report (trends vs previous month, week-by-week, momentum).
 
 ## Files
 
@@ -49,5 +49,7 @@ or just double-click `index.html` (works over `file://` in Chrome/Safari).
 
 - A 10k-step day earns the same 25% credit as one gym class (per "10,000 steps = 25% gym credit"); a day with both counts once.
 - Days with no food logged are excluded from the weekly diet average rather than scored 0.
+- An Aeon essay or any Norman Lewis vocab pages count as the same daily reading habit (7 days/week goal); pages are also totalled weekly.
+- "Overall Today" scores just the selected day (gym class = 100, steps-only = 25; office is skipped and weights renormalize on off days; QA measured against the summed required pace of open chapters). The weekly/monthly spec formulas still drive CAT Readiness and the Reports tab.
 - Unknown foods fall back to manual calorie/protein entry.
 - Deleting a chapter keeps its logged questions in daily history but stops counting them.

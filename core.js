@@ -13,12 +13,14 @@
     wake: null,            // true | false | null
     office: null,          // "office" | "wfh" | "absent" | null
     gymClass: false,
+    gymType: null,         // which class: legs, arms-chest, ...
     gymCal: null,
     steps10k: false,
     iron: false, b12: false, vitd: false,
-    foods: [],             // {name, qty, unit, cal, p}
+    foods: [],             // {name, qty, unit, cal, p, meal}
     qa: {},                // chapterId -> questions done that day
     dilr: 0, rc: 0, aeon: false,
+    vocabPages: 0,         // Norman Lewis pages read today
   });
 
   function load() {
@@ -98,13 +100,13 @@
 
   function gymWeek(d) {
     const keys = weekKeys(d);
-    let classes = 0, stepDays = 0, cal = 0;
+    let classes = 0, stepDays = 0, cal = 0; const types = [];
     for (const k of keys) {
       const r = S.days[k]; if (!r) continue;
-      if (r.gymClass) { classes++; cal += r.gymCal || 0; }
+      if (r.gymClass) { classes++; cal += r.gymCal || 0; if (r.gymType) types.push(r.gymType); }
       else if (r.steps10k) stepDays++;
     }
-    return { classes, stepDays, cal, score: clamp(classes * 25 + stepDays * 25) };
+    return { classes, stepDays, cal, types, score: clamp(classes * 25 + stepDays * 25) };
   }
 
   function vitaminsWeek(d) {
@@ -176,7 +178,13 @@
 
   function dilrWeek(d) { const sets = weekSum(d, "dilr"); return { sets, score: clamp((sets / 12) * 100) }; }
   function rcWeek(d) { const rcs = weekSum(d, "rc"); return { rcs, score: clamp((rcs / 10) * 100) }; }
-  function aeonWeek(d) { const essays = weekAeon(d); return { essays, score: clamp((essays / 7) * 100) }; }
+  // Aeon essay OR Norman Lewis vocab pages both satisfy the daily reading habit (same weightage).
+  function aeonWeek(d) {
+    const keys = weekKeys(d);
+    const essays = keys.filter((k) => S.days[k] && (S.days[k].aeon || (S.days[k].vocabPages || 0) > 0)).length;
+    const pages = keys.reduce((a, k) => a + ((S.days[k] && S.days[k].vocabPages) || 0), 0);
+    return { essays, pages, score: clamp((essays / 7) * 100) };
+  }
   function varcWeek(d) { return rnd((rcWeek(d).score + aeonWeek(d).score) / 2); }
 
   function studyScore(d) {
@@ -209,6 +217,44 @@
     return rnd(qa * 0.4 + dilrWeek(d).score * 0.25 + rcWeek(d).score * 0.15 + aeonWeek(d).score * 0.10 + wakeWeek(d).score * 0.10);
   }
 
+  // Per-day category scores for the Today tab ("how did TODAY go").
+  // Office is excluded (null) on off days and the weights renormalize.
+  function dailyScores(key) {
+    const r = S.days[key] || DEFAULT_DAY();
+    const d = parseKey(key);
+    const wake = r.wake === true ? 100 : 0;
+    const office = isWorkingDay(d) ? ((r.office === "office" || r.office === "wfh") ? 100 : 0) : null;
+    const gym = r.gymClass ? 100 : r.steps10k ? 25 : 0;
+    const vitDone = (r.iron ? 1 : 0) + (r.b12 ? 1 : 0) + (r.vitd ? 1 : 0);
+    const vitamins = rnd((vitDone / (r.vitd ? 3 : 2)) * 100);
+    const diet = dietDay(key).score ?? 0;
+    // study: QA vs today's required pace, DILR vs ~2 sets/day, RC vs ~1.5/day, Aeon/vocab done
+    const qaToday = Object.values(r.qa || {}).reduce((a, b) => a + b, 0);
+    let paceTarget = 0;
+    for (const ch of S.chapters) { const st = chapterStats(ch); if (st.pace && st.remaining > 0) paceTarget += st.pace; }
+    let qaDaily = null;
+    if (paceTarget > 0) qaDaily = clamp((qaToday / paceTarget) * 100);
+    else if (S.chapters.length) qaDaily = qaToday > 0 ? 100 : 0;
+    const dilrDaily = clamp(((r.dilr || 0) / 2) * 100);
+    const rcDaily = clamp(((r.rc || 0) / 1.5) * 100);
+    const readDaily = (r.aeon || (r.vocabPages || 0) > 0) ? 100 : 0;
+    const varcDaily = rnd((rcDaily + readDaily) / 2);
+    const study = qaDaily == null
+      ? rnd(dilrDaily * 0.6 + varcDaily * 0.4)
+      : rnd(qaDaily * 0.5 + dilrDaily * 0.3 + varcDaily * 0.2);
+    return { study, diet, gym, wake, office, vitamins };
+  }
+
+  function overallToday(key) {
+    const c = dailyScores(key);
+    let sum = 0, wsum = 0;
+    for (const k in WEIGHTS) {
+      if (c[k] == null) continue;
+      sum += c[k] * WEIGHTS[k]; wsum += WEIGHTS[k];
+    }
+    return wsum ? rnd(sum / wsum) : 0;
+  }
+
   // Daily activity % for charts/heatmap: share of applicable checklist items done.
   function dailyActivity(key) {
     const r = S.days[key];
@@ -221,7 +267,7 @@
     total += 2; if (r.iron) done++; if (r.b12) done++;
     total++; if (r.foods && r.foods.length) done++;
     total++;
-    const anyStudy = (r.dilr || 0) > 0 || (r.rc || 0) > 0 || r.aeon || Object.values(r.qa || {}).some((v) => v > 0);
+    const anyStudy = (r.dilr || 0) > 0 || (r.rc || 0) > 0 || r.aeon || (r.vocabPages || 0) > 0 || Object.values(r.qa || {}).some((v) => v > 0);
     if (anyStudy) done++;
     return rnd((done / total) * 100);
   }
@@ -233,5 +279,6 @@
     chapterDone, chapterStats, qaScore,
     dilrWeek, rcWeek, aeonWeek, varcWeek, studyScore,
     categoryScores, overallScore, readinessScore, dailyActivity,
+    dailyScores, overallToday,
   };
 })();

@@ -7,9 +7,20 @@
     tab: "today",
     dateKey: fmtKey(today()),
     foodQuery: "",
+    mealSel: null,    // active meal bucket for the diet log
     weekOffset: 0,   // reports: weeks back from current
     monthOffset: 0,  // reports + dashboard: months back
+    reportMode: "weekly",
   };
+
+  const GYM_CLASSES = ["Legs", "Arms and Chest", "Chest and Back", "Full Body Burn", "Yoga", "Dance Fitness"];
+  const MEALS = [
+    { id: "breakfast", name: "Breakfast" },
+    { id: "lunch", name: "Lunch" },
+    { id: "snacks", name: "Evening Snacks" },
+    { id: "dinner", name: "Dinner" },
+  ];
+  const defaultMeal = () => { const h = new Date().getHours(); return h < 11 ? "breakfast" : h < 16 ? "lunch" : h < 19 ? "snacks" : "dinner"; };
 
   const CATS = [
     { id: "study", name: "Study", color: "var(--indigo)", soft: "var(--indigo-soft)" },
@@ -36,12 +47,13 @@
     const d = selDate(), r = day();
     const isToday = UI.dateKey === fmtKey(today());
     const working = isWorkingDay(d);
-    const cats = Score.categoryScores(d);
+    const daily = Score.dailyScores(UI.dateKey);
     const diet = Score.dietDay(UI.dateKey);
     const om = Score.officeMonth(d), gw = Score.gymWeek(d), vw = Score.vitaminsWeek(d), ww = Score.wakeWeek(d);
     const dw = Score.dilrWeek(d), rw = Score.rcWeek(d), aw = Score.aeonWeek(d);
     const calT = S.settings.calTarget, proT = S.settings.proteinTarget;
     const todaysQA = Object.entries(r.qa || {}).filter(([, n]) => n > 0);
+    const mealSel = UI.mealSel || defaultMeal();
 
     return `
     <div class="datenav">
@@ -54,13 +66,14 @@
     </div>
 
     <div class="card scorestrip">
-      <div class="ringbox">${C.ring(Score.overallScore(d), { size: 132, color: "var(--indigo)", label: "Overall Score", sub: "this week" })}</div>
+      <div class="ringbox">${C.ring(Score.overallToday(UI.dateKey), { size: 132, color: "var(--indigo)", label: "Overall Today", sub: isToday ? "today" : "this day" })}
+        <div class="ring-label muted">Week avg: ${Score.overallScore(d)}%</div></div>
       <div class="ringbox">${C.ring(Score.readinessScore(d), { size: 132, color: "var(--teal)", label: "CAT Readiness", sub: "weighted" })}</div>
       <div class="catbars">
         ${CATS.map((c) => `<div class="catbar">
           <span class="nm"><span class="dot" style="background:${c.color}"></span> ${c.name} <span class="wt">${Score.WEIGHTS[c.id]}%</span></span>
-          ${C.bar(cats[c.id], c.color)}
-          <span class="pc">${Math.round(cats[c.id])}%</span></div>`).join("")}
+          ${daily[c.id] == null ? `<div class="hbar"></div>` : C.bar(daily[c.id], c.color)}
+          <span class="pc">${daily[c.id] == null ? `<span class="muted small">off day</span>` : Math.round(daily[c.id]) + "%"}</span></div>`).join("")}
       </div>
     </div>
 
@@ -89,7 +102,12 @@
         <h3><span class="dot" style="background:var(--orange)"></span> Gym</h3>
         <p class="sub">Goal: 4 classes a week · 10k steps = 25% credit</p>
         <div class="row"><span class="lbl">Gym class attended</span><button class="check ${r.gymClass ? "on" : ""}" data-act="gym:class">✓</button></div>
-        ${r.gymClass ? `<div class="row"><span class="lbl">Calories burned</span><input class="input sm" type="number" value="${r.gymCal ?? ""}" placeholder="kcal" data-act="gym:cal"></div>` : ""}
+        ${r.gymClass ? `<div class="row"><span class="lbl">Which class?</span>
+          <select class="input" style="width:160px;padding:6px 9px" data-act="gym:type">
+            <option value="" ${!r.gymType ? "selected" : ""} disabled>Pick a class…</option>
+            ${GYM_CLASSES.map((g) => `<option value="${g}" ${r.gymType === g ? "selected" : ""}>${g}</option>`).join("")}
+          </select></div>
+        <div class="row"><span class="lbl">Calories burned</span><input class="input sm" type="number" value="${r.gymCal ?? ""}" placeholder="kcal" data-act="gym:cal"></div>` : ""}
         <div class="row"><span class="lbl">10,000+ steps</span><button class="check ${r.steps10k ? "on" : ""}" data-act="gym:steps">✓</button></div>
         <div class="row"><span class="hint">This week</span><b>${gw.classes}/4 classes${gw.stepDays ? ` +${gw.stepDays} step day${gw.stepDays > 1 ? "s" : ""}` : ""} · ${Math.round(gw.score)}%</b></div>
       </div>
@@ -103,19 +121,29 @@
         <div class="row"><span class="hint">Week doses</span><b>${vw.done}/15 · ${Math.round(vw.score)}%</b></div>
       </div>
 
-      <div class="card span-2">
+      <div class="card span-3">
         <h3><span class="dot" style="background:var(--green)"></span> Diet Log</h3>
-        <p class="sub">Targets: ${calT} kcal · ${proT}g protein <button class="iconbtn" data-act="diet:targets">edit</button>. Type naturally, e.g. "2 eggs" or "1 bowl rice"</p>
+        <p class="sub">Targets: ${calT} kcal · ${proT}g protein <button class="iconbtn" data-act="diet:targets">edit</button>. Pick a meal, then type naturally. "rice and rajma" logs as two separate items.</p>
+        <div class="seg" style="margin-bottom:10px">
+          ${MEALS.map((m) => `<button class="${mealSel === m.id ? "on" : ""}" data-act="meal:${m.id}">${m.name}</button>`).join("")}
+        </div>
         <div class="food-box field-row">
-          <input class="input" style="flex:1" id="foodInput" placeholder="Add food… (2 eggs, protein shake, 1 bowl dal)" value="${esc(UI.foodQuery)}" autocomplete="off">
+          <input class="input" style="flex:1" id="foodInput" placeholder="Add to ${MEALS.find((m) => m.id === mealSel).name.toLowerCase()}… (2 eggs, rice and rajma)" value="${esc(UI.foodQuery)}" autocomplete="off">
           <button class="btn primary" data-act="food:add">Add</button>
           <div class="suggest" id="foodSuggest" style="display:none"></div>
         </div>
         <div class="mt12">
-          ${r.foods.length ? r.foods.map((f, i) => `<div class="food-item">
-              <span class="nm">${esc(f.name)} <span class="mc">× ${f.qty} ${esc(f.unit)}</span></span>
-              <span class="mc">${Math.round(f.cal)} kcal · ${Math.round(f.p * 10) / 10}g <button class="del" data-act="food:del:${i}">remove</button></span>
-            </div>`).join("") : `<div class="empty">Nothing logged yet today</div>`}
+          ${r.foods.length ? MEALS.concat([{ id: "other", name: "Other" }]).map((m) => {
+            const items = r.foods.map((f, i) => ({ f, i })).filter(({ f }) => (f.meal || "other") === m.id);
+            if (!items.length) return "";
+            const mc = Math.round(items.reduce((a, { f }) => a + f.cal, 0));
+            const mp = Math.round(items.reduce((a, { f }) => a + f.p, 0) * 10) / 10;
+            return `<div class="row" style="border-top:none;padding-bottom:2px"><span class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:.05em">${m.name}</span><span class="hint">${mc} kcal · ${mp}g</span></div>
+              ${items.map(({ f, i }) => `<div class="food-item">
+                <span class="nm">${esc(f.name)} <span class="mc">× ${f.qty} ${esc(f.unit)}</span></span>
+                <span class="mc">${Math.round(f.cal)} kcal · ${Math.round(f.p * 10) / 10}g <button class="del" data-act="food:del:${i}">remove</button></span>
+              </div>`).join("")}`;
+          }).join("") : `<div class="empty">Nothing logged yet today</div>`}
         </div>
         <div class="totals">
           <div class="tot"><div class="num">${diet.cal}<span class="cap"> / ${calT} kcal</span></div>
@@ -130,8 +158,8 @@
       </div>
 
       <div class="card">
-        <h3><span class="dot" style="background:var(--indigo)"></span> Study Log</h3>
-        <p class="sub">QA chapters, DILR sets, RCs, Aeon essay</p>
+        <h3><span class="dot" style="background:var(--indigo)"></span> QA</h3>
+        <p class="sub">Log today's questions per chapter. Detailed QA module coming soon, share your data to expand this window.</p>
         ${S.chapters.length ? `
         <div class="field-row">
           <select class="input" id="qaChapter" style="flex:1">${S.chapters.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select>
@@ -142,12 +170,22 @@
           const ch = S.chapters.find((c) => c.id === id);
           return `<div class="row"><span class="lbl">${ch ? esc(ch.name) : "Chapter"}</span><b>+${n} Qs <button class="iconbtn" data-act="qa:undo:${id}">undo</button></b></div>`;
         }).join("")}</div>` : ""}
-        <div class="row mt8"><span class="lbl">DILR sets today</span>
+        ${S.chapters.length ? `<div class="row mt8"><span class="hint">Today's required pace</span><b>${(() => {
+          let t = 0; for (const ch of S.chapters) { const st = Score.chapterStats(ch); if (st.pace && st.remaining > 0) t += st.pace; }
+          return t ? t + " Qs" : "on track";
+        })()}</b></div>` : ""}
+      </div>
+
+      <div class="card">
+        <h3><span class="dot" style="background:var(--purple)"></span> Study Log</h3>
+        <p class="sub">DILR sets, RCs, Aeon essay or Norman Lewis vocab (same weightage)</p>
+        <div class="row"><span class="lbl">DILR sets today</span>
           <span class="stepper"><button data-act="dilr:-1">−</button><span class="val">${r.dilr}</span><button data-act="dilr:1">+</button></span></div>
         <div class="row"><span class="lbl">RCs today</span>
           <span class="stepper"><button data-act="rc:-1">−</button><span class="val">${r.rc}</span><button data-act="rc:1">+</button></span></div>
         <div class="row"><span class="lbl">Aeon essay read</span><button class="check ${r.aeon ? "on" : ""}" data-act="aeon">✓</button></div>
-        <div class="row"><span class="hint">Week: DILR ${dw.sets}/12 · RC ${rw.rcs}/10 · Aeon ${aw.essays}/7</span></div>
+        <div class="row"><span class="lbl">Norman Lewis pages</span><input class="input sm" type="number" min="0" value="${r.vocabPages || ""}" placeholder="pages" data-act="vocab:pages"></div>
+        <div class="row"><span class="hint">Week: DILR ${dw.sets}/12 · RC ${rw.rcs}/10 · Aeon/Vocab ${aw.essays}/7${aw.pages ? ` · ${aw.pages} pages` : ""}</span></div>
       </div>
     </div>`;
   }
@@ -162,7 +200,7 @@
     <div class="grid cols-3">
       <div class="card"><div class="ringbox">${C.ring(qa ?? 0, { size: 120, color: "var(--indigo)", label: "QA · avg chapter completion", sub: "50% of study" })}</div></div>
       <div class="card"><div class="ringbox">${C.ring(dw.score, { size: 120, color: "var(--orange)", label: `DILR · ${dw.sets}/12 sets this week`, sub: "30% of study" })}</div></div>
-      <div class="card"><div class="ringbox">${C.ring(Score.varcWeek(d), { size: 120, color: "var(--pink)", label: `VARC · RC ${rw.rcs}/10 · Aeon ${aw.essays}/7`, sub: "20% of study" })}</div></div>
+      <div class="card"><div class="ringbox">${C.ring(Score.varcWeek(d), { size: 120, color: "var(--pink)", label: `VARC · RC ${rw.rcs}/10 · Aeon/Vocab ${aw.essays}/7`, sub: "20% of study" })}</div></div>
     </div>
 
     <div class="card mt16">
@@ -202,7 +240,7 @@
       </div>
       <div class="card">
         <h3>VARC · last 6 weeks</h3>
-        <p class="sub">RCs (goal 10) and Aeon essays (goal 7) per week</p>
+        <p class="sub">RCs (goal 10) and Aeon/vocab days (goal 7) per week</p>
         ${C.barChart(weeksBack.flatMap((m) => ([
           { x: "RC " + fmtShort(m), y: Score.rcWeek(m).rcs, color: "var(--pink)" },
           { x: "Ae", y: Score.aeonWeek(m).essays, color: "var(--purple)" },
@@ -322,7 +360,7 @@
     const winLines = wins.length
       ? wins.map((e) => `<li><b>${e.name} at ${e.score}%</b>: keep this rhythm going.</li>`)
       : [`<li>Logging itself is the win this week; data in is momentum out. Best area: <b>${entries.slice().sort((a, b) => b.score - a.score)[0].name}</b>.</li>`];
-    if (w.aeon.essays >= 5) winLines.push(`<li><b>${w.aeon.essays} Aeon essays</b> read, VARC compounding nicely.</li>`);
+    if (w.aeon.essays >= 5) winLines.push(`<li><b>${w.aeon.essays} Aeon/vocab days</b> this week, VARC compounding nicely.</li>`);
     if (w.gym.classes >= 3) winLines.push(`<li><b>${w.gym.classes} gym classes</b> attended.</li>`);
     if (w.wake.yes >= 6) winLines.push(`<li><b>${w.wake.yes}/7 wake-ups</b>, elite consistency.</li>`);
 
@@ -360,8 +398,7 @@
       ["Office", (r) => r.cats.office], ["Vitamins", (r) => r.cats.vitamins],
     ];
 
-    return `
-    <div class="grid cols-2">
+    const weeklyCard = `
       <div class="card">
         <div class="datenav" style="margin-bottom:8px">
           <button class="navbtn" data-act="week:-1">‹</button>
@@ -379,9 +416,9 @@
           <div class="statline"><span>QA (avg chapter completion)</span><b>${w.qa == null ? "no chapters" : w.qa + "%"}</b></div>
           <div class="statline"><span>DILR sets</span><b>${w.dilr.sets}/12 · ${Math.round(w.dilr.score)}%</b></div>
           <div class="statline"><span>RCs</span><b>${w.rc.rcs}/10 · ${Math.round(w.rc.score)}%</b></div>
-          <div class="statline"><span>Aeon essays</span><b>${w.aeon.essays}/7 · ${Math.round(w.aeon.score)}%</b></div>
+          <div class="statline"><span>Aeon / Vocab days${w.aeon.pages ? ` (${w.aeon.pages} Norman Lewis pages)` : ""}</span><b>${w.aeon.essays}/7 · ${Math.round(w.aeon.score)}%</b></div>
           <h4>Health & routine</h4>
-          <div class="statline"><span>Gym classes</span><b>${w.gym.classes}/4${w.gym.stepDays ? ` (+${w.gym.stepDays} step days)` : ""} · ${Math.round(w.gym.score)}%</b></div>
+          <div class="statline"><span>Gym classes${w.gym.types.length ? ` (${w.gym.types.join(", ")})` : ""}</span><b>${w.gym.classes}/4${w.gym.stepDays ? ` (+${w.gym.stepDays} step days)` : ""} · ${Math.round(w.gym.score)}%</b></div>
           <div class="statline"><span>Diet (days logged: ${w.diet.days})</span><b>${w.diet.score == null ? "no logs" : w.diet.score + "%"}</b></div>
           <div class="statline"><span>Wake-ups</span><b>${w.wake.yes}/7 · ${Math.round(w.wake.score)}%</b></div>
           <div class="statline"><span>Office (month-to-date)</span><b>${w.office.attended}/${w.office.expected} · ${w.office.score == null ? "–" : Math.round(w.office.score) + "%"}</b></div>
@@ -390,8 +427,9 @@
           <h4>🔧 Areas to Improve</h4><ul class="cleanlist improve">${improveLines.join("")}</ul>
           <h4>🎯 Next Week Focus</h4><ul class="cleanlist focus">${focus.map((e, i) => `<li><b>${i + 1}. ${e.name}:</b> ${FOCUS[e.id]}</li>`).join("")}</ul>
         </div>
-      </div>
+      </div>`;
 
+    const monthlyCard = `
       <div class="card">
         <div class="datenav" style="margin-bottom:8px">
           <button class="navbtn" data-act="month:-1">‹</button>
@@ -414,8 +452,14 @@
               : `➡️ Holding steady across the month. Consistency is the base; now pick one category to push 10 points higher.`}
           </p>
         </div>
-      </div>
-    </div>`;
+      </div>`;
+
+    return `
+    <div class="seg" style="margin-bottom:14px">
+      <button class="${UI.reportMode === "weekly" ? "on" : ""}" data-act="rmode:weekly">Weekly Report</button>
+      <button class="${UI.reportMode === "monthly" ? "on" : ""}" data-act="rmode:monthly">Monthly Report</button>
+    </div>
+    ${UI.reportMode === "monthly" ? monthlyCard : weeklyCard}`;
   }
 
   // --------------------------------------------------------------- RENDER ---
@@ -460,7 +504,7 @@
     qty = qty ?? qtyFromInput();
     const r = getDay(UI.dateKey, true);
     r.foods = r.foods || [];
-    r.foods.push({ name: food.n, qty, unit: food.u, cal: food.c * qty, p: food.p * qty });
+    r.foods.push({ name: food.n, qty, unit: food.u, cal: food.c * qty, p: food.p * qty, meal: UI.mealSel || defaultMeal() });
     setDay(UI.dateKey, { foods: r.foods });
     UI.foodQuery = "";
     render();
@@ -478,7 +522,7 @@
       if (hit) {
         const r = getDay(UI.dateKey, true);
         r.foods = r.foods || [];
-        r.foods.push({ name: hit.food.n, qty: hit.qty, unit: hit.food.u, cal: hit.food.c * hit.qty, p: hit.food.p * hit.qty });
+        r.foods.push({ name: hit.food.n, qty: hit.qty, unit: hit.food.u, cal: hit.food.c * hit.qty, p: hit.food.p * hit.qty, meal: UI.mealSel || defaultMeal() });
         setDay(UI.dateKey, { foods: r.foods });
         added++;
       } else failed.push(p);
@@ -490,7 +534,7 @@
         const pro = parseFloat(prompt(`Protein (g) for "${p}":`) || "0") || 0;
         const r = getDay(UI.dateKey, true);
         r.foods = r.foods || [];
-        r.foods.push({ name: p, qty: 1, unit: "serving", cal, p: pro });
+        r.foods.push({ name: p, qty: 1, unit: "serving", cal, p: pro, meal: UI.mealSel || defaultMeal() });
         setDay(UI.dateKey, { foods: r.foods });
         added++;
       }
@@ -520,9 +564,10 @@
       case "wake": patchDay({ wake: arg === "yes" ? (r.wake === true ? null : true) : (r.wake === false ? null : false) }); break;
       case "office": patchDay({ office: r.office === arg ? null : arg }); break;
       case "gym":
-        if (arg === "class") patchDay({ gymClass: !r.gymClass });
+        if (arg === "class") patchDay({ gymClass: !r.gymClass, gymType: r.gymClass ? null : r.gymType });
         else if (arg === "steps") patchDay({ steps10k: !r.steps10k });
         break;
+      case "meal": UI.mealSel = arg; render(); break;
       case "vit": patchDay({ [arg]: !r[arg] }); break;
       case "aeon": patchDay({ aeon: !r.aeon }); break;
       case "dilr": patchDay({ dilr: Math.max(0, (r.dilr || 0) + Number(arg)) }); break;
@@ -579,6 +624,7 @@
           saveState(); render();
         }
         break;
+      case "rmode": UI.reportMode = arg; render(); break;
       case "week": UI.weekOffset = Math.max(0, UI.weekOffset - Number(arg)); render(); break;
       case "month": UI.monthOffset = Math.max(0, UI.monthOffset - Number(arg)); render(); break;
       case "export": {
@@ -600,6 +646,8 @@
     const el = e.target;
     if (el.matches('input[type=date][data-act="date:set"]') && el.value) { UI.dateKey = el.value; render(); }
     if (el.matches('[data-act="gym:cal"]')) setDay(UI.dateKey, { gymCal: parseInt(el.value, 10) || null });
+    if (el.matches('[data-act="gym:type"]')) { setDay(UI.dateKey, { gymType: el.value || null }); render(); }
+    if (el.matches('[data-act="vocab:pages"]')) { setDay(UI.dateKey, { vocabPages: Math.max(0, parseInt(el.value, 10) || 0) }); render(); }
     if (el.id === "importFile" && el.files[0]) {
       const fr = new FileReader();
       fr.onload = () => {
