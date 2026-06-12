@@ -84,15 +84,14 @@
     return { yes, score: clamp((yes / 7) * 100) };
   }
 
+  // Expected = ALL working days in the month (Mon-Fri + 2nd/4th/5th Sat), not just elapsed ones.
   function officeMonth(d) {
     const keys = monthKeys(d);
-    const upto = fmtKey(d);
     let expected = 0, attended = 0, wfh = 0, absent = 0;
     for (const k of keys) {
       const day = parseKey(k);
       const rec = S.days[k];
       if (rec && rec.office === "wfh") wfh++;
-      if (k > upto) continue;
       if (!isWorkingDay(day)) continue;
       expected++;
       if (rec && (rec.office === "office" || rec.office === "wfh")) attended++;
