@@ -94,7 +94,7 @@ input, select { font: inherit; color: inherit; }
 .mascot-svg { width: 124px; height: auto; display: block; overflow: visible; }
 
 /* ---- Blob animations ---- */
-.mascot-svg .bun, .mascot-svg .m-knife, .mascot-svg .m-tongue { transform-box: view-box; }
+.mascot-svg .bun, .mascot-svg .m-prop, .mascot-svg .m-tongue { transform-box: view-box; }
 .mascot-svg .bun { animation: bun-bob 3.4s ease-in-out infinite; transform-origin: 85px 170px; }
 @keyframes bun-bob { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.967) translateY(-1px); } }
 
@@ -122,8 +122,8 @@ input, select { font: inherit; color: inherit; }
 @keyframes bun-shake { 0%, 14%, 100% { transform: translateX(0); }
   2% { transform: translateX(-2.5px) rotate(-1deg); } 5% { transform: translateX(2.5px) rotate(1deg); }
   8% { transform: translateX(-2px); } 11% { transform: translateX(2px); } }
-.m-knife { transform-origin: 128px 60px; animation: knife-waggle 2.9s ease-in-out infinite; }
-@keyframes knife-waggle { 0%, 14%, 100% { transform: rotate(0deg); }
+.m-prop { transform-origin: 135px 156px; animation: prop-waggle 2.9s ease-in-out infinite; }
+@keyframes prop-waggle { 0%, 14%, 100% { transform: rotate(0deg); }
   3% { transform: rotate(-7deg); } 7% { transform: rotate(5deg); } 11% { transform: rotate(-3deg); } }
 .m-mark { animation: mark-pulse 1.5s ease-in-out infinite; }
 @keyframes mark-pulse { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
