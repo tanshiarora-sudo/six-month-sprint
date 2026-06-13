@@ -14,6 +14,18 @@
   };
 
   const GYM_CLASSES = ["Legs", "Arms and Chest", "Chest and Back", "Full Body", "Burn", "Yoga", "Dance Fitness"];
+
+  // Arun Sharma QA for CAT (10th ed) chapter list, in book order.
+  const ARUN_QA = [
+    "Number Systems", "Progressions and Series", "Averages", "Percentages",
+    "Ratio, Proportion and Variation", "Alligations and Mixtures", "Profit, Loss and Discount",
+    "Simple and Compound Interest", "Time and Work", "Time, Speed and Distance",
+    "Applications of Time, Speed and Distance", "Geometry and Mensuration", "Coordinate Geometry",
+    "Functions", "Inequalities", "Quadratic and Other Equations", "Logarithms",
+    "Permutations and Combinations", "Probability", "Set Theory",
+  ];
+  const ARUN_DONE = ["Averages", "Percentages", "Ratio, Proportion and Variation", "Alligations and Mixtures"];
+  const ARUN_DEFAULT_TOTAL = 50; // placeholder LOD-2 count; user edits per chapter
   const MEALS = [
     { id: "breakfast", name: "Breakfast" },
     { id: "lunch", name: "Lunch" },
@@ -251,6 +263,8 @@
         <input class="input" id="chTarget" type="date" style="width:160px">
         <button class="btn primary" data-act="ch:add">+ Add Chapter</button>
       </div>
+      <div class="mt8"><button class="btn" data-act="ch:seed">📚 Load Arun Sharma chapters (${ARUN_QA.length})</button>
+        <span class="small muted">adds all chapters, marks the ${ARUN_DONE.length} you've finished as done · totals are placeholders, edit per chapter</span></div>
       ${S.chapters.length ? `<table class="tbl mt12"><thead><tr>
         <th>Chapter</th><th>Progress</th><th>%</th><th>Remaining</th><th>Pace/day</th><th>Target</th><th>Expected</th><th></th>
       </tr></thead><tbody>
@@ -663,6 +677,17 @@
           if (!name || !total) { toast("Chapter needs a name and total questions"); break; }
           S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name, total, startDone: done, target });
           saveState(); render(); toast(`Added ${name}`);
+        } else if (arg === "seed") {
+          const have = new Set(S.chapters.map((c) => c.name.toLowerCase()));
+          let added = 0;
+          for (const name of ARUN_QA) {
+            if (have.has(name.toLowerCase())) continue;
+            const done = ARUN_DONE.includes(name);
+            S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name, total: ARUN_DEFAULT_TOTAL, startDone: done ? ARUN_DEFAULT_TOTAL : 0, target: null });
+            added++;
+          }
+          saveState(); render();
+          toast(added ? `Added ${added} chapters, ${ARUN_DONE.length} marked done` : "All chapters already present");
         } else if (arg === "del") {
           const ch = S.chapters.find((c) => c.id === arg2);
           if (ch && confirm(`Delete chapter "${ch.name}"? Its logged questions stay in daily history but stop counting.`)) {
