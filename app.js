@@ -287,7 +287,7 @@
         }).join("")}
       </div>
 
-      <div class="card tint-indigo span-2">
+      <div class="card tint-indigo span-3">
         <h3><span class="dot" style="background:var(--indigo)"></span> Today's Study Plan</h3>
         <p class="sub">One item per subject, in order. All books finish by 31 Aug (vocab ~3 Aug). Each target rebalances daily as you log.</p>
         ${(() => {
@@ -321,7 +321,7 @@
         })()}
       </div>
 
-      <div class="card tint-purple span-2">
+      <div class="card tint-purple span-3">
         <h3><span class="dot" style="background:var(--purple)"></span> Daily Study Log</h3>
         <p class="sub">DILR & VARC are light daily habits (1/day min). Reading 20 min/day. Log your study hours.</p>
         <div class="dgrid">
@@ -343,50 +343,36 @@
       </div>
     </div>
 
-    <div class="grid cols-2 mt16">
-      <div class="card tint-indigo">
-        <h3><span class="dot" style="background:var(--indigo)"></span> Mocks</h3>
-        <p class="sub">${MOCK_PLAN}</p>
-        <div class="field-row">
-          <input class="input" id="mkName" placeholder="Mock name (e.g. AIMCAT 1)" style="flex:1.4">
-          <input class="input sm" id="mkScore" type="number" placeholder="Score">
-          <input class="input sm" id="mkPct" type="number" step="0.01" placeholder="%ile">
-          <button class="btn primary" data-act="mock:add">+ Log</button>
-        </div>
-        <input class="input mt8" id="mkNote" placeholder="Key lesson learned (optional)">
-        ${(S.mocks && S.mocks.length) ? `<table class="tbl mt12"><thead><tr><th>Mock</th><th>Score</th><th>%ile</th><th>Lesson</th><th></th></tr></thead><tbody>
-          ${S.mocks.slice().reverse().map((m) => `<tr>
-            <td><b>${esc(m.name || "Mock")}</b><div class="hint">${m.date ? fmtShort(parseKey(m.date)) : ""}</div></td>
-            <td class="num">${m.score ?? "–"}</td><td class="num">${m.percentile != null ? m.percentile + "%ile" : "–"}</td>
-            <td class="small">${esc(m.note || "")}</td>
-            <td><button class="iconbtn" data-act="mock:del:${m.id}">✕</button></td></tr>`).join("")}
-        </tbody></table>` : `<div class="empty">No mocks yet. First one mid-July.</div>`}
-        <div class="row mt8"><span class="hint">Mocks taken</span><b>${(S.mocks || []).length}</b></div>
-      </div>
-
-      <div class="card">
-        <h3><span class="dot" style="background:var(--teal)"></span> Status</h3>
-        <p class="sub">Where you stand against the plan, recomputed live</p>
+      <div class="card span-3">
         ${(() => {
-          const qc = Score.qaChapters().filter((c) => Score.chapterStats(c).remaining > 0 && c.target);
-          if (!qc.length) return `<div class="empty">Load your study plan in the Study tab to see status.</div>`;
-          // ahead/behind: avg actual daily pace (last 14d) vs required pace
-          let req = 0; qc.forEach((c) => { req += Score.chapterStats(c).pace || 0; });
-          const todayK = fmtKey(today());
-          let recent = 0, days = 0;
-          for (let i = 1; i <= 14; i++) { const k = fmtKey(addDays(today(), -i)); const rr = S.days[k]; if (rr && rr.qa) { recent += Score.qaChapters().reduce((a, c) => a + (rr.qa[c.id] || 0), 0); days++; } }
-          const avg = days ? recent / 14 : 0;
-          const ratio = req ? avg / req : 0;
-          const status = avg === 0 ? "Not started" : ratio >= 0.95 ? "On Track" : ratio >= 0.7 ? "Slightly Behind" : "Behind";
-          const cls = status === "On Track" ? "good" : status === "Behind" ? "low" : "mid";
-          const nextDate = qc.map((c) => Score.chapterStats(c).expected).filter((x) => x && x !== "Done");
-          const risk = qc.filter((c) => { const st = Score.chapterStats(c); return st.daysLeft != null && st.daysLeft <= 7 && st.remaining > st.pace * st.daysLeft * 1.1; });
-          return `
-            <div class="row"><span class="lbl">QA pace</span><span class="pill ${cls}">${status}</span></div>
-            <div class="row"><span class="lbl">Required today (QA)</span><b>${req} Qs</b></div>
-            <div class="row"><span class="lbl">Your 14-day avg</span><b>${Math.round(avg)} Qs/day</b></div>
-            <div class="row"><span class="lbl">Vocab finishes</span><b>${(() => { const v = planFor("vocab", todayK); return v && !v.done ? (v.current.st.expected || "on pace") : "done"; })()}</b></div>
-            ${risk.length ? `<div class="mt8 small" style="color:var(--red)">⚠ Tight on deadline: ${risk.map((c) => esc(c.name)).join(", ")}. I'd nudge these up or move them to the July batch.</div>` : `<div class="mt8 small muted">No deadline risks right now. Keep the daily target and you finish on time.</div>`}`;
+          const qaP = planFor("qa", UI.dateKey), voP = planFor("vocab", UI.dateKey);
+          const qaDone = Score.qaChapters().reduce((a, c) => a + ((r.qa || {})[c.id] || 0), 0);
+          const voChs = S.chapters.filter((c) => (c.subject) === "vocab");
+          const voDone = voChs.reduce((a, c) => a + ((r.qa || {})[c.id] || 0), 0);
+          const tgts = [
+            { sub: "qa", goal: qaP && !qaP.done ? qaP.dailyTarget : 0, done: qaDone, label: qaP && !qaP.done ? `${qaP.dailyTarget} questions` : "all done", note: qaP && !qaP.done ? qaP.current.ch.name : "" },
+            { sub: "dilr", goal: 1, done: r.dilrSol || 0, label: "1 set solved", note: "Logical + Data Interp" },
+            { sub: "varc", goal: 1, done: (r.rc || 0) + (r.va || 0), label: "1 RC or VA exercise", note: "RC + Verbal" },
+            { sub: "vocab", goal: voP && !voP.done ? 1 : 0, done: voDone, label: voP && !voP.done ? "1 session" : "all done", note: "Word Power" },
+            { sub: "read", goal: 20, done: r.readMin || 0, label: "20 minutes", note: "Reading", color: "var(--green)", soft: "var(--green-soft)" },
+          ];
+          const hitCount = tgts.filter((t) => t.goal > 0 && t.done >= t.goal).length;
+          const liveCount = tgts.filter((t) => t.goal > 0).length;
+          return `<h3>Today's Targets <span class="muted small">${hitCount}/${liveCount} done</span></h3>
+          <p class="sub">Hit each one and today counts. Simple yes or no.</p>
+          <div class="tgt-grid">
+            ${tgts.map((t) => {
+              const m = t.sub === "read" ? { name: "Reading", color: t.color, soft: t.soft } : SUB_META[t.sub];
+              const na = t.goal === 0;
+              const hit = !na && t.done >= t.goal;
+              return `<div class="tgt ${hit ? "hit" : na ? "na" : ""}" style="--c:${m.color};--s:${m.soft}">
+                <div class="tgt-head"><span class="tgt-name">${m.name}</span>${na ? `<span class="yn done">✓ done</span>` : hit ? `<span class="yn yes">YES ✓</span>` : `<span class="yn no">not yet</span>`}</div>
+                <div class="tgt-goal">${na ? "nothing left" : t.label}</div>
+                ${t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
+                ${na ? "" : `<div class="tgt-prog">${t.done}/${t.goal}</div>`}
+              </div>`;
+            }).join("")}
+          </div>`;
         })()}
       </div>
     </div>`;
