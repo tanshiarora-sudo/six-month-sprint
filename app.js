@@ -200,6 +200,39 @@
       </div>
     </div>
 
+    ${(() => {
+      const qaP = planFor("qa", UI.dateKey), voP = planFor("vocab", UI.dateKey);
+      const qaDone = Score.qaChapters().reduce((a, c) => a + ((r.qa || {})[c.id] || 0), 0);
+      const voDone = S.chapters.filter((c) => c.subject === "vocab").reduce((a, c) => a + ((r.qa || {})[c.id] || 0), 0);
+      const tgts = [
+        { sub: "qa", goal: qaP && !qaP.done ? qaP.dailyTarget : 0, done: qaDone, label: qaP && !qaP.done ? qaP.dailyTarget + " questions" : "all done", note: qaP && !qaP.done ? qaP.current.ch.name : "" },
+        { sub: "dilr", goal: 1, done: r.dilrSol || 0, label: "1 set solved", note: "tap to add a set" },
+        { sub: "varc", goal: 1, done: (r.rc || 0) + (r.va || 0), label: "1 RC or VA", note: "tap to add one" },
+        { sub: "vocab", goal: voP && !voP.done ? 1 : 0, done: voDone, label: voP && !voP.done ? "1 session" : "all done", note: "Word Power" },
+        { sub: "read", goal: 20, done: r.readMin || 0, label: "20 minutes", note: "tap +20 min", color: "var(--green)", soft: "var(--green-soft)" },
+      ];
+      const hitN = tgts.filter((t) => t.goal > 0 && t.done >= t.goal).length;
+      const liveN = tgts.filter((t) => t.goal > 0).length;
+      return `<div class="card span-3 targets-card">
+        <h3>Today's Targets <span class="muted small">${hitN}/${liveN} done · tap a card to log</span></h3>
+        <p class="sub">The priority. Hit each one and today counts, simple yes or no.</p>
+        <div class="tgt-grid">
+          ${tgts.map((t) => {
+            const m = t.sub === "read" ? { name: "Reading", color: t.color, soft: t.soft } : SUB_META[t.sub];
+            const na = t.goal === 0;
+            const done = !na && t.done >= t.goal;
+            return `<div class="tgt ${done ? "hit" : na ? "na" : ""}" ${na ? "" : `data-act="tgt:${t.sub}" role="button" tabindex="0"`} style="--c:${m.color};--s:${m.soft}">
+              ${!na && t.done > 0 ? `<button class="tgt-minus" data-act="tgtminus:${t.sub}" title="undo">−</button>` : ""}
+              <div class="tgt-head"><span class="tgt-name">${m.name}</span>${na ? `<span class="yn done">✓ done</span>` : done ? `<span class="yn yes">YES ✓</span>` : `<span class="yn no">tap to log</span>`}</div>
+              <div class="tgt-goal">${na ? "nothing left" : t.label}</div>
+              ${t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
+              ${na ? "" : `<div class="tgt-prog">${t.done}/${t.goal}</div>`}
+            </div>`;
+          }).join("")}
+        </div>
+      </div>`;
+    })()}
+
     <div class="grid cols-3 mt16">
       <div class="card tint-teal">
         <h3><span class="dot" style="background:var(--teal)"></span> Wake Up</h3>
@@ -287,94 +320,6 @@
         }).join("")}
       </div>
 
-      <div class="card tint-indigo span-3">
-        <h3><span class="dot" style="background:var(--indigo)"></span> Today's Study Plan</h3>
-        <p class="sub">One item per subject, in order. All books finish by 31 Aug (vocab ~3 Aug). Each target rebalances daily as you log.</p>
-        ${(() => {
-          if (!S.chapters.length) return `<div class="small muted">Build your plan in the Study tab (click "Load full study plan").</div>`;
-          const rows = PLAN_SUBJECTS.map((s) => ({ s, plan: planFor(s, UI.dateKey) })).filter((x) => x.plan);
-          if (!rows.length) return `<div class="small muted">Build your plan in the Study tab (click "Load full study plan").</div>`;
-          return `<div class="splan">${rows.map(({ s, plan }) => {
-            const m = SUB_META[s];
-            if (plan.done) return `<div class="splan-row done"><span class="sp-tag" style="background:${m.soft};color:${m.color}">${m.name}</span><span class="sp-item">all done ✓</span></div>`;
-            const cur = plan.current, hit = plan.doneToday >= plan.dailyTarget, left = Math.max(0, plan.dailyTarget - plan.doneToday);
-            return `<div class="splan-row ${hit ? "hit" : ""}">
-              <span class="sp-tag" style="background:${m.soft};color:${m.color}">${m.name}</span>
-              <span class="sp-item"><b>${esc(cur.ch.name)}</b><span class="sp-meta">${cur.st.done}/${cur.ch.total} ${m.unit} · ${cur.st.remaining} left · ${plan.daysLeft}d</span></span>
-              <span class="sp-prog">${plan.doneToday}<span class="sp-slash">/${plan.dailyTarget}</span><span class="sp-sub"> today</span></span>
-              <button class="sp-btn ${hit ? "hit" : ""}" data-act="qa:today:${s}" title="${hit ? "Target hit, log more" : "Log today's target"}">${hit ? "✓" : "+" + left}</button>
-            </div>`;
-          }).join("")}</div>
-          <div class="field-row mt12">
-            <span class="hint">Custom log:</span>
-            <select class="input" id="qaChapter" style="flex:1">${PLAN_SUBJECTS.map((s) => {
-              const items = S.chapters.filter((c) => (c.subject || "qa") === s);
-              return items.length ? `<optgroup label="${SUB_META[s].name}">${items.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</optgroup>` : "";
-            }).join("")}</select>
-            <input class="input sm" type="number" min="1" id="qaCount" placeholder="count">
-            <button class="btn primary" data-act="qa:log">Log</button>
-          </div>
-          ${todaysQA.length ? `<div class="mt8 small muted">Logged today: ${todaysQA.map(([id, n]) => {
-            const ch = S.chapters.find((c) => c.id === id);
-            return `${ch ? esc(ch.name) : "Item"} +${n} <button class="iconbtn" data-act="qa:undo:${id}">undo</button>`;
-          }).join(" · ")}</div>` : ""}`;
-        })()}
-      </div>
-
-      <div class="card tint-purple span-3">
-        <h3><span class="dot" style="background:var(--purple)"></span> Daily Study Log</h3>
-        <p class="sub">DILR & VARC are light daily habits (1/day min). Reading 20 min/day. Log your study hours.</p>
-        <div class="dgrid">
-          <div class="dcell"><span class="lbl">DILR sets attempted</span>
-            <span class="stepper"><button data-act="dilrAtt:-1">−</button><span class="val">${r.dilrAtt || 0}</span><button data-act="dilrAtt:1">+</button></span></div>
-          <div class="dcell"><span class="lbl">DILR sets solved</span>
-            <span class="stepper"><button data-act="dilrSol:-1">−</button><span class="val">${r.dilrSol || 0}</span><button data-act="dilrSol:1">+</button></span></div>
-          <div class="dcell"><span class="lbl">RCs completed</span>
-            <span class="stepper"><button data-act="rc:-1">−</button><span class="val">${r.rc || 0}</span><button data-act="rc:1">+</button></span></div>
-          <div class="dcell"><span class="lbl">VA exercises</span>
-            <span class="stepper"><button data-act="va:-1">−</button><span class="val">${r.va || 0}</span><button data-act="va:1">+</button></span></div>
-          <div class="dcell"><span class="lbl">Reading minutes <span class="hint">goal 20</span></span>
-            <input class="input sm" type="number" min="0" value="${r.readMin || ""}" placeholder="min" data-act="read:min"></div>
-          <div class="dcell"><span class="lbl">Study hours today</span>
-            <input class="input sm" type="number" min="0" step="0.5" value="${r.hours || ""}" placeholder="hrs" data-act="study:hours"></div>
-        </div>
-        <div class="row mt8"><span class="hint">This week</span><b>DILR ${dw.sets}/7 solved${dw.att ? ` (${dw.att} att)` : ""} · RC ${rw.rcs}/7 · VA ${Score.vaWeek(d).ex}/7 · Reading ${Score.readingWeek(d).days}/7d</b></div>
-        <div class="row"><span class="hint">🔥 Reading streak</span><b>${Score.readingStreak()} day${Score.readingStreak() === 1 ? "" : "s"}</b></div>
-      </div>
-    </div>
-
-      <div class="card span-3">
-        ${(() => {
-          const qaP = planFor("qa", UI.dateKey), voP = planFor("vocab", UI.dateKey);
-          const qaDone = Score.qaChapters().reduce((a, c) => a + ((r.qa || {})[c.id] || 0), 0);
-          const voChs = S.chapters.filter((c) => (c.subject) === "vocab");
-          const voDone = voChs.reduce((a, c) => a + ((r.qa || {})[c.id] || 0), 0);
-          const tgts = [
-            { sub: "qa", goal: qaP && !qaP.done ? qaP.dailyTarget : 0, done: qaDone, label: qaP && !qaP.done ? `${qaP.dailyTarget} questions` : "all done", note: qaP && !qaP.done ? qaP.current.ch.name : "" },
-            { sub: "dilr", goal: 1, done: r.dilrSol || 0, label: "1 set solved", note: "Logical + Data Interp" },
-            { sub: "varc", goal: 1, done: (r.rc || 0) + (r.va || 0), label: "1 RC or VA exercise", note: "RC + Verbal" },
-            { sub: "vocab", goal: voP && !voP.done ? 1 : 0, done: voDone, label: voP && !voP.done ? "1 session" : "all done", note: "Word Power" },
-            { sub: "read", goal: 20, done: r.readMin || 0, label: "20 minutes", note: "Reading", color: "var(--green)", soft: "var(--green-soft)" },
-          ];
-          const hitCount = tgts.filter((t) => t.goal > 0 && t.done >= t.goal).length;
-          const liveCount = tgts.filter((t) => t.goal > 0).length;
-          return `<h3>Today's Targets <span class="muted small">${hitCount}/${liveCount} done</span></h3>
-          <p class="sub">Hit each one and today counts. Simple yes or no.</p>
-          <div class="tgt-grid">
-            ${tgts.map((t) => {
-              const m = t.sub === "read" ? { name: "Reading", color: t.color, soft: t.soft } : SUB_META[t.sub];
-              const na = t.goal === 0;
-              const hit = !na && t.done >= t.goal;
-              return `<div class="tgt ${hit ? "hit" : na ? "na" : ""}" style="--c:${m.color};--s:${m.soft}">
-                <div class="tgt-head"><span class="tgt-name">${m.name}</span>${na ? `<span class="yn done">✓ done</span>` : hit ? `<span class="yn yes">YES ✓</span>` : `<span class="yn no">not yet</span>`}</div>
-                <div class="tgt-goal">${na ? "nothing left" : t.label}</div>
-                ${t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
-                ${na ? "" : `<div class="tgt-prog">${t.done}/${t.goal}</div>`}
-              </div>`;
-            }).join("")}
-          </div>`;
-        })()}
-      </div>
     </div>`;
   }
 
@@ -806,6 +751,32 @@
       case "dilrSol": patchDay({ dilrSol: Math.max(0, (r.dilrSol || 0) + Number(arg)) }); break;
       case "rc": patchDay({ rc: Math.max(0, (r.rc || 0) + Number(arg)) }); break;
       case "va": patchDay({ va: Math.max(0, (r.va || 0) + Number(arg)) }); break;
+      case "tgt": {
+        if (arg === "qa" || arg === "vocab") {
+          const p = planFor(arg, UI.dateKey);
+          if (!p || p.done) { toast(arg.toUpperCase() + " all done 🎉"); break; }
+          const add = arg === "qa" ? Math.min(Math.max(0, p.dailyTarget - p.doneToday) || p.dailyTarget, p.current.st.remaining) : 1;
+          const id = p.current.ch.id;
+          const qa = { ...(r.qa || {}) }; qa[id] = (qa[id] || 0) + add;
+          patchDay({ qa }); toast(`+${add} ${SUB_META[arg].unit} · ${p.current.ch.name}`);
+        } else if (arg === "dilr") patchDay({ dilrSol: (r.dilrSol || 0) + 1, dilrAtt: Math.max(r.dilrAtt || 0, (r.dilrSol || 0) + 1) });
+        else if (arg === "varc") patchDay({ rc: (r.rc || 0) + 1 });
+        else if (arg === "read") patchDay({ readMin: (r.readMin || 0) + 20 });
+        break;
+      }
+      case "tgtminus": {
+        if (arg === "qa" || arg === "vocab") {
+          const qa = { ...(r.qa || {}) };
+          const ids = (arg === "qa" ? Score.qaChapters() : S.chapters.filter((c) => c.subject === "vocab")).map((c) => c.id).filter((id) => qa[id] > 0);
+          const p = planFor(arg, UI.dateKey);
+          const dec = arg === "qa" ? (p && !p.done ? p.dailyTarget : 1) : 1;
+          const id = (p && !p.done && qa[p.current.ch.id]) ? p.current.ch.id : ids.pop();
+          if (id) { qa[id] = Math.max(0, (qa[id] || 0) - dec); if (!qa[id]) delete qa[id]; patchDay({ qa }); }
+        } else if (arg === "dilr") patchDay({ dilrSol: Math.max(0, (r.dilrSol || 0) - 1) });
+        else if (arg === "varc") patchDay({ rc: Math.max(0, (r.rc || 0) - 1) });
+        else if (arg === "read") patchDay({ readMin: Math.max(0, (r.readMin || 0) - 20) });
+        break;
+      }
       case "mock":
         if (arg === "add") {
           const name = (document.getElementById("mkName").value || "").trim();

@@ -224,9 +224,16 @@ input, select { font: inherit; color: inherit; }
 /* Today's targets (yes/no) */
 .tgt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 4px; }
 @media (max-width: 920px) { .tgt-grid { grid-template-columns: 1fr 1fr; } }
-.tgt { border-radius: 15px; padding: 13px 14px; background: var(--s); border: 1.5px solid transparent; }
+.tgt { border-radius: 15px; padding: 13px 14px; background: var(--s); border: 1.5px solid transparent; position: relative; transition: transform .1s ease, box-shadow .15s ease; }
+.tgt[role="button"] { cursor: pointer; }
+.tgt[role="button"]:hover { box-shadow: 0 6px 18px rgba(29,29,31,.10); transform: translateY(-2px); }
+.tgt[role="button"]:active { transform: translateY(0) scale(.985); }
 .tgt.hit { border-color: var(--c); }
 .tgt.na { opacity: .55; }
+.tgt-minus { position: absolute; bottom: 9px; right: 10px; width: 22px; height: 22px; border-radius: 7px;
+  background: rgba(255,255,255,.7); color: var(--muted); font-size: 16px; font-weight: 700; line-height: 1;
+  display: grid; place-items: center; }
+.tgt-minus:hover { background: #fff; color: var(--red); }
 .tgt-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .tgt-name { font-weight: 800; font-size: 13px; color: var(--c); }
 .yn { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
