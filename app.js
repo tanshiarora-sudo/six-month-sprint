@@ -60,25 +60,48 @@
     varc:  { name: "VARC",  color: "var(--pink)",   soft: "var(--pink-soft)",   unit: "exercise" },
     vocab: { name: "Vocab", color: "var(--teal)",   soft: "var(--teal-soft)",   unit: "session" },
   };
-  // DILR topics in book order (Sharma LR + DI). Counts are set estimates, editable per row.
+  // DILR topics straight from the book's contents (Reasoning for CAT: LR + Verbal Reasoning, then DI).
+  // Counts are set/exercise estimates; edit any row in the Study tab.
   const DILR_ITEMS = [
-    { name: "LR: Arrangements", total: 14 }, { name: "LR: Rankings", total: 8 },
-    { name: "LR: Team Formations", total: 8 }, { name: "LR: Quantitative Reasoning", total: 8 },
-    { name: "LR: Routes & Networks", total: 6 }, { name: "LR: Set Theory & Venn", total: 8 },
-    { name: "LR: Cubes & Dice", total: 6 }, { name: "LR: Games & Tournaments", total: 8 },
-    { name: "LR: Syllogisms", total: 10 }, { name: "LR: Logical Deduction", total: 8 },
-    { name: "LR: Binary Logic", total: 6 }, { name: "DI: Traditional DI", total: 16 },
-    { name: "DI: Logical DI", total: 14 }, { name: "DI: Twelve-Minute Tests", total: 12 },
+    { name: "LR: Important Concepts", total: 3 },
+    { name: "LR: Arrangements", total: 14 },
+    { name: "LR: Rankings", total: 8 },
+    { name: "LR: Team Formations", total: 8 },
+    { name: "LR: Quantitative Reasoning", total: 8 },
+    { name: "LR: Generic Puzzles", total: 8 },
+    { name: "LR: Routes & Network Diagrams", total: 6 },
+    { name: "LR: Set Theory & Venn Diagrams", total: 8 },
+    { name: "LR: Cubes & Dice", total: 6 },
+    { name: "LR: Games & Tournaments", total: 10 },
+    { name: "VR: Syllogisms", total: 10 },
+    { name: "VR: Logical Deduction", total: 8 },
+    { name: "VR: Binary Logic", total: 6 },
+    { name: "DI: Traditional Data Interpretation", total: 16 },
+    { name: "DI: Logical Data Interpretation", total: 14 },
+    { name: "DI: Twelve-Minute Tests", total: 12 },
   ];
-  // VARC (RC book + Verbal Ability book), tracked in exercises/passages · estimates, editable.
+  // VARC topics from the books (Verbal Ability book + Reading Comprehension book), in study order.
   const VARC_ITEMS = [
-    { name: "VA: Word Lists I/II/III", total: 30 }, { name: "VA: Roots, Prefixes & Suffixes", total: 20 },
-    { name: "VA: Synonyms / Antonyms / Odd One", total: 24 }, { name: "VA: Analogies", total: 12 },
-    { name: "VA: Fill in the Blanks", total: 15 }, { name: "VA: Sentence Completion", total: 15 },
-    { name: "VA: Para Jumbles", total: 30 }, { name: "VA: Sentence Correction", total: 25 },
-    { name: "VA: Para Completion / Last Sentence", total: 20 }, { name: "VA: Irrelevant Statement", total: 15 },
-    { name: "VA: Summary Questions", total: 15 }, { name: "RC: Reading Skills modules", total: 8 },
-    { name: "RC: Critical Reasoning", total: 20 }, { name: "RC: LOD Practice Passages", total: 40 },
+    { name: "VA: Word List I (High Frequency)", total: 10 },
+    { name: "VA: Word List II (Medium Frequency)", total: 10 },
+    { name: "VA: Word List III (Low Frequency)", total: 10 },
+    { name: "VA: Roots, Prefixes & Suffixes", total: 12 },
+    { name: "VA: Words Often Confused", total: 8 },
+    { name: "VA: Synonyms", total: 8 },
+    { name: "VA: Antonyms", total: 8 },
+    { name: "VA: Odd Man Out", total: 6 },
+    { name: "VA: Analogies", total: 10 },
+    { name: "VA: Sentence Completion / Fill in Blanks", total: 15 },
+    { name: "VA: Paragraph Jumbles", total: 25 },
+    { name: "VA: Sentence Correction", total: 20 },
+    { name: "VA: Fact, Inference & Judgement", total: 12 },
+    { name: "VA: Phrasal Verbs", total: 8 },
+    { name: "VA: Paragraph Completion / Last Sentence", total: 18 },
+    { name: "VA: Irrelevant Statement", total: 12 },
+    { name: "VA: Summary of the Passage", total: 12 },
+    { name: "RC: Reading Skills (7 Dimensions)", total: 7 },
+    { name: "RC: Critical Reasoning", total: 15 },
+    { name: "RC: Practice Passages", total: 40 },
   ];
   const VOCAB_ITEMS = [{ name: "Word Power Made Easy (sessions)", total: 47 }];
   const SUBJECTS = ["qa", "dilr", "varc", "vocab"];
@@ -853,6 +876,8 @@
           DILR_ITEMS.forEach((it, i) => plan.push({ ...it, subject: "dilr", unit: SUB_META.dilr.unit, ord: i, target: JUL, done: false }));
           VARC_ITEMS.forEach((it, i) => plan.push({ ...it, subject: "varc", unit: SUB_META.varc.unit, ord: i, target: JUL, done: false }));
           VOCAB_ITEMS.forEach((it, i) => plan.push({ ...it, subject: "vocab", unit: SUB_META.vocab.unit, ord: i, target: VOCAB_END, done: false }));
+          // DILR/VARC are fully replaced by the book lists (so renamed topics don't duplicate); QA/vocab merge to keep progress.
+          S.chapters = S.chapters.filter((c) => ["qa", "vocab"].includes(c.subject || "qa"));
           const byName = {};
           S.chapters.forEach((c) => { byName[c.name.toLowerCase()] = c; });
           let added = 0, updated = 0;
