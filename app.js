@@ -222,8 +222,7 @@
             const m = t.sub === "read" ? { name: "Reading", color: t.color, soft: t.soft } : SUB_META[t.sub];
             const na = t.goal === 0;
             const done = !na && t.done >= t.goal;
-            return `<div class="tgt ${done ? "hit" : na ? "na" : ""}" ${na ? "" : `data-act="tgt:${t.sub}" role="button" tabindex="0"`} style="--c:${m.color};--s:${m.soft}">
-              ${!na && t.done > 0 ? `<button class="tgt-minus" data-act="tgtminus:${t.sub}" title="undo">−</button>` : ""}
+            return `<div class="tgt ${done ? "hit" : na ? "na" : ""}" ${na ? "" : `data-act="tgt:${t.sub}" role="button" tabindex="0" title="${done ? "tap to undo" : "tap to mark done"}"`} style="--c:${m.color};--s:${m.soft}">
               <div class="tgt-head"><span class="tgt-name">${m.name}</span>${na ? `<span class="yn done">✓ done</span>` : done ? `<span class="yn yes">YES ✓</span>` : `<span class="yn no">tap to log</span>`}</div>
               <div class="tgt-goal">${na ? "nothing left" : t.label}</div>
               ${t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
@@ -756,29 +755,26 @@
       case "rc": patchDay({ rc: Math.max(0, (r.rc || 0) + Number(arg)) }); break;
       case "va": patchDay({ va: Math.max(0, (r.va || 0) + Number(arg)) }); break;
       case "tgt": {
+        // each tile is a yes/no toggle for TODAY only — tap to mark done, tap again to undo. never overshoots.
         if (arg === "qa" || arg === "vocab") {
           const p = planFor(arg, UI.dateKey);
-          if (!p || p.done) { toast(arg.toUpperCase() + " all done 🎉"); break; }
-          const add = arg === "qa" ? Math.min(Math.max(0, p.dailyTarget - p.doneToday) || p.dailyTarget, p.current.st.remaining) : 1;
-          const id = p.current.ch.id;
-          const qa = { ...(r.qa || {}) }; qa[id] = (qa[id] || 0) + add;
-          patchDay({ qa }); toast(`+${add} ${SUB_META[arg].unit} · ${p.current.ch.name}`);
-        } else if (arg === "dilr") patchDay({ dilrSol: (r.dilrSol || 0) + 1, dilrAtt: Math.max(r.dilrAtt || 0, (r.dilrSol || 0) + 1) });
-        else if (arg === "varc") patchDay({ rc: (r.rc || 0) + 1 });
-        else if (arg === "read") patchDay({ readMin: (r.readMin || 0) + 20 });
-        break;
-      }
-      case "tgtminus": {
-        if (arg === "qa" || arg === "vocab") {
+          if (!p) break;
+          const chs = arg === "qa" ? Score.qaChapters() : S.chapters.filter((c) => c.subject === "vocab");
           const qa = { ...(r.qa || {}) };
-          const ids = (arg === "qa" ? Score.qaChapters() : S.chapters.filter((c) => c.subject === "vocab")).map((c) => c.id).filter((id) => qa[id] > 0);
-          const p = planFor(arg, UI.dateKey);
-          const dec = arg === "qa" ? (p && !p.done ? p.dailyTarget : 1) : 1;
-          const id = (p && !p.done && qa[p.current.ch.id]) ? p.current.ch.id : ids.pop();
-          if (id) { qa[id] = Math.max(0, (qa[id] || 0) - dec); if (!qa[id]) delete qa[id]; patchDay({ qa }); }
-        } else if (arg === "dilr") patchDay({ dilrSol: Math.max(0, (r.dilrSol || 0) - 1) });
-        else if (arg === "varc") patchDay({ rc: Math.max(0, (r.rc || 0) - 1) });
-        else if (arg === "read") patchDay({ readMin: Math.max(0, (r.readMin || 0) - 20) });
+          const doneToday = chs.reduce((a, c) => a + (qa[c.id] || 0), 0);
+          const target = p.done ? 0 : (arg === "qa" ? p.dailyTarget : 1);
+          if (target === 0) { toast(SUB_META[arg].name + " all done 🎉"); break; }
+          if (doneToday >= target) {
+            chs.forEach((c) => { delete qa[c.id]; });            // untick: clear today's logs for this subject
+            patchDay({ qa }); toast(SUB_META[arg].name + " un-ticked for today");
+          } else {
+            let need = target - doneToday;                        // tick: log up to target, flowing across chapters
+            for (const x of p.order) { if (need <= 0) break; const add = Math.min(need, x.st.remaining); if (add > 0) { qa[x.ch.id] = (qa[x.ch.id] || 0) + add; need -= add; } }
+            patchDay({ qa }); toast(`${SUB_META[arg].name} done for today ✓`);
+          }
+        } else if (arg === "dilr") { const on = (r.dilrSol || 0) >= 1; patchDay({ dilrSol: on ? 0 : 1, dilrAtt: on ? 0 : Math.max(r.dilrAtt || 0, 1) }); }
+        else if (arg === "varc") { const on = ((r.rc || 0) + (r.va || 0)) >= 1; patchDay({ rc: on ? 0 : 1, va: 0 }); }
+        else if (arg === "read") { const on = (r.readMin || 0) >= 20; patchDay({ readMin: on ? 0 : 20 }); }
         break;
       }
       case "mock":
