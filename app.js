@@ -49,6 +49,37 @@
     "Coordinate Geometry", "Functions", "Inequalities", "Quadratic and Other Equations",
     "Logarithms", "Permutations and Combinations", "Probability", "Set Theory",
   ];
+
+  // ---- Full study plan: all four subjects, everything by 31 Aug ----
+  const AUG = "2026-08-31", VOCAB_END = "2026-08-03";
+  const SUB_META = {
+    qa:    { name: "QA",    color: "var(--indigo)", soft: "var(--indigo-soft)", unit: "Qs" },
+    dilr:  { name: "DILR",  color: "var(--orange)", soft: "var(--orange-soft)", unit: "sets" },
+    varc:  { name: "VARC",  color: "var(--pink)",   soft: "var(--pink-soft)",   unit: "ex" },
+    vocab: { name: "Vocab", color: "var(--teal)",   soft: "var(--teal-soft)",   unit: "sessions" },
+  };
+  // DILR (Sharma LR + DI), tracked in practice sets · counts are estimates, editable.
+  const DILR_ITEMS = [
+    { name: "LR: Arrangements", total: 14 }, { name: "LR: Rankings", total: 8 },
+    { name: "LR: Team Formations", total: 8 }, { name: "LR: Quantitative Reasoning", total: 8 },
+    { name: "LR: Routes & Networks", total: 6 }, { name: "LR: Set Theory & Venn", total: 8 },
+    { name: "LR: Cubes & Dice", total: 6 }, { name: "LR: Games & Tournaments", total: 8 },
+    { name: "LR: Binary Logic", total: 6 }, { name: "LR: Syllogisms", total: 10 },
+    { name: "LR: Logical Deduction", total: 8 }, { name: "DI: Traditional DI", total: 16 },
+    { name: "DI: Logical DI", total: 14 }, { name: "DI: Twelve-Minute Tests", total: 12 },
+  ];
+  // VARC (RC book + Verbal Ability book), tracked in exercises/passages · estimates, editable.
+  const VARC_ITEMS = [
+    { name: "VA: Word Lists I/II/III", total: 30 }, { name: "VA: Roots, Prefixes & Suffixes", total: 20 },
+    { name: "VA: Synonyms / Antonyms / Odd One", total: 24 }, { name: "VA: Analogies", total: 12 },
+    { name: "VA: Fill in the Blanks", total: 15 }, { name: "VA: Sentence Completion", total: 15 },
+    { name: "VA: Para Jumbles", total: 30 }, { name: "VA: Sentence Correction", total: 25 },
+    { name: "VA: Para Completion / Last Sentence", total: 20 }, { name: "VA: Irrelevant Statement", total: 15 },
+    { name: "VA: Summary Questions", total: 15 }, { name: "RC: Reading Skills modules", total: 8 },
+    { name: "RC: Critical Reasoning", total: 20 }, { name: "RC: LOD Practice Passages", total: 40 },
+  ];
+  const VOCAB_ITEMS = [{ name: "Word Power Made Easy (sessions)", total: 50 }];
+  const SUBJECTS = ["qa", "dilr", "varc", "vocab"];
   const MEALS = [
     { id: "breakfast", name: "Breakfast" },
     { id: "lunch", name: "Lunch" },
@@ -87,17 +118,19 @@
     return `<div class="recent-chips">${top.map((t, j) =>
       `<button class="chip-add" data-act="food:recent:${j}">${FoodDB.emojiFor(t.f.name)} ${esc(t.f.name)}</button>`).join("")}</div>`;
   }
-  // Sequential QA plan for a given day: which chapter is active, today's question target.
-  function qaPlan(dateKey) {
-    const order = QA_ORDER
-      .map((n) => S.chapters.find((c) => c.name.toLowerCase() === n.toLowerCase()))
-      .filter(Boolean)
-      .map((ch) => ({ ch, st: Score.chapterStats(ch) }));
+  // Sequential plan for one subject on a given day: active item + today's target.
+  function planFor(subject, dateKey) {
+    const order = S.chapters
+      .filter((c) => (c.subject || "qa") === subject)
+      .map((ch) => ({ ch, st: Score.chapterStats(ch) }))
+      .sort((a, b) => (a.ch.ord ?? 99) - (b.ch.ord ?? 99));
+    if (!order.length) return null;
     const incomplete = order.filter((x) => x.st.remaining > 0);
-    if (!incomplete.length) return order.length ? { order, done: true } : null;
+    if (!incomplete.length) return { subject, order, done: true };
     const current = incomplete[0];
-    const batch = current.ch.target || "2026-07-31";
-    const batchAll = order.filter((x) => (x.ch.target || "2026-07-31") === batch);
+    const fallback = subject === "vocab" ? VOCAB_END : AUG;
+    const batch = current.ch.target || fallback;
+    const batchAll = incomplete.filter((x) => (x.ch.target || fallback) === batch);
     const rec = S.days[dateKey] || {};
     const doneToday = batchAll.reduce((a, x) => a + ((rec.qa || {})[x.ch.id] || 0), 0);
     const batchRemaining = batchAll.reduce((a, x) => a + x.st.remaining, 0);
@@ -105,8 +138,9 @@
     const daysLeft = Math.max(1, Math.round((deadline - day0) / 86400000) + 1);
     // add today's logs back so the target stays fixed for the day instead of shrinking as you log
     const dailyTarget = Math.max(1, Math.ceil((batchRemaining + doneToday) / daysLeft));
-    return { order, current, batch, batchRemaining, daysLeft, dailyTarget, doneToday };
+    return { subject, order, current, batch, batchRemaining, daysLeft, dailyTarget, doneToday };
   }
+  const qaPlan = (dateKey) => planFor("qa", dateKey);
   const selDate = () => parseKey(UI.dateKey);
   const day = () => getDay(UI.dateKey, false);
   const patchDay = (p) => { setDay(UI.dateKey, p); render(); };
@@ -251,44 +285,35 @@
       </div>
 
       <div class="card tint-indigo span-2">
-        <h3><span class="dot" style="background:var(--indigo)"></span> QA · Today's Plan</h3>
-        <p class="sub">One chapter at a time, in order. June batch by 30 Jun, the rest by 31 Jul. The daily target rebalances as you log.</p>
+        <h3><span class="dot" style="background:var(--indigo)"></span> Today's Study Plan</h3>
+        <p class="sub">One item per subject, in order. All books finish by 31 Aug (vocab ~3 Aug). Each target rebalances daily as you log.</p>
         ${(() => {
-          if (!S.chapters.length) return `<div class="small muted">Add QA chapters in the Study tab to build your plan.</div>`;
-          const plan = qaPlan(UI.dateKey);
-          if (!plan || plan.done) return `<div class="empty">🎉 All QA chapters complete!</div>`;
-          const cur = plan.current;
-          const hit = plan.doneToday >= plan.dailyTarget;
-          return `
-          <div class="qa-today">
-            <div class="qa-today-main">
-              <div class="qt-label">Today's target · ${plan.batch === JUN ? "June batch" : "July batch"} · ${plan.daysLeft}d left</div>
-              <div class="qt-big">${plan.doneToday}<span class="qt-slash">/${plan.dailyTarget}</span> <span class="qt-unit">Qs</span></div>
-              ${C.bar(plan.dailyTarget ? (plan.doneToday / plan.dailyTarget) * 100 : 0, "var(--indigo)")}
-              <div class="qt-current">On now: <b>${esc(cur.ch.name)}</b> — ${cur.st.done}/${cur.ch.total} done, <b>${cur.st.remaining} left</b></div>
-              <button class="btn primary mt8" data-act="qa:today">${hit ? "Target hit ✓ — log more" : "+ Log today's target"}</button>
-            </div>
-            <div class="qa-queue">
-              ${plan.order.map((x) => {
-                const done = x.st.remaining === 0;
-                const isCur = cur && x.ch.id === cur.ch.id;
-                const tag = (x.ch.target || JUL) === JUN ? "jun" : "jul";
-                return `<div class="qq-row ${done ? "done" : isCur ? "cur" : "up"}">
-                  <span>${done ? "✓" : isCur ? "▸" : "·"} ${esc(x.ch.name)}</span>
-                  <span class="qq-meta"><span class="tag ${tag}">${tag === "jun" ? "Jun" : "Jul"}</span> ${x.st.done}/${x.ch.total}</span>
-                </div>`;
-              }).join("")}
-            </div>
-          </div>
+          if (!S.chapters.length) return `<div class="small muted">Build your plan in the Study tab (click "Load full study plan").</div>`;
+          const rows = SUBJECTS.map((s) => ({ s, plan: planFor(s, UI.dateKey) })).filter((x) => x.plan);
+          if (!rows.length) return `<div class="small muted">Build your plan in the Study tab (click "Load full study plan").</div>`;
+          return `<div class="splan">${rows.map(({ s, plan }) => {
+            const m = SUB_META[s];
+            if (plan.done) return `<div class="splan-row done"><span class="sp-tag" style="background:${m.soft};color:${m.color}">${m.name}</span><span class="sp-item">all done ✓</span></div>`;
+            const cur = plan.current, hit = plan.doneToday >= plan.dailyTarget, left = Math.max(0, plan.dailyTarget - plan.doneToday);
+            return `<div class="splan-row ${hit ? "hit" : ""}">
+              <span class="sp-tag" style="background:${m.soft};color:${m.color}">${m.name}</span>
+              <span class="sp-item"><b>${esc(cur.ch.name)}</b><span class="sp-meta">${cur.st.done}/${cur.ch.total} ${m.unit} · ${cur.st.remaining} left · ${plan.daysLeft}d</span></span>
+              <span class="sp-prog">${plan.doneToday}<span class="sp-slash">/${plan.dailyTarget}</span><span class="sp-sub"> today</span></span>
+              <button class="sp-btn ${hit ? "hit" : ""}" data-act="qa:today:${s}" title="${hit ? "Target hit, log more" : "Log today's target"}">${hit ? "✓" : "+" + left}</button>
+            </div>`;
+          }).join("")}</div>
           <div class="field-row mt12">
             <span class="hint">Custom log:</span>
-            <select class="input" id="qaChapter" style="flex:1">${S.chapters.map((c) => `<option value="${c.id}" ${cur && c.id === cur.ch.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select>
-            <input class="input sm" type="number" min="1" id="qaCount" placeholder="Qs">
+            <select class="input" id="qaChapter" style="flex:1">${SUBJECTS.map((s) => {
+              const items = S.chapters.filter((c) => (c.subject || "qa") === s);
+              return items.length ? `<optgroup label="${SUB_META[s].name}">${items.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</optgroup>` : "";
+            }).join("")}</select>
+            <input class="input sm" type="number" min="1" id="qaCount" placeholder="count">
             <button class="btn primary" data-act="qa:log">Log</button>
           </div>
           ${todaysQA.length ? `<div class="mt8 small muted">Logged today: ${todaysQA.map(([id, n]) => {
             const ch = S.chapters.find((c) => c.id === id);
-            return `${ch ? esc(ch.name) : "Chapter"} +${n} <button class="iconbtn" data-act="qa:undo:${id}">undo</button>`;
+            return `${ch ? esc(ch.name) : "Item"} +${n} <button class="iconbtn" data-act="qa:undo:${id}">undo</button>`;
           }).join(" · ")}</div>` : ""}`;
         })()}
       </div>
@@ -313,42 +338,63 @@
     const dw = Score.dilrWeek(d), rw = Score.rcWeek(d), aw = Score.aeonWeek(d);
     const qa = Score.qaScore();
     const weeksBack = Array.from({ length: 6 }, (_, i) => addDays(monday(today()), -7 * (5 - i)));
+    const subPct = (s) => {
+      const items = S.chapters.filter((c) => (c.subject || "qa") === s);
+      if (!items.length) return null;
+      const done = items.reduce((a, c) => a + Score.chapterDone(c), 0);
+      const tot = items.reduce((a, c) => a + c.total, 0);
+      return tot ? Math.round((done / tot) * 100) : 0;
+    };
     return `
-    <div class="grid cols-3">
-      <div class="card tint-indigo"><div class="ringbox">${C.ring(qa ?? 0, { size: 120, color: "var(--indigo)", label: "QA · avg chapter completion", sub: "50% of study" })}</div></div>
-      <div class="card tint-orange"><div class="ringbox">${C.ring(dw.score, { size: 120, color: "var(--orange)", label: `DILR · ${dw.sets}/12 sets this week`, sub: "30% of study" })}</div></div>
-      <div class="card tint-pink"><div class="ringbox">${C.ring(Score.varcWeek(d), { size: 120, color: "var(--pink)", label: `VARC · RC ${rw.rcs}/10 · Aeon/Vocab ${aw.essays}/7`, sub: "20% of study" })}</div></div>
+    <div class="card mt8 roadmap-card">
+      <h3>CAT 2026 Roadmap</h3>
+      <p class="sub">Exam: <b>Sun 29 Nov 2026</b> · Registration ~1 Aug–20 Sep · Notification ~26 Jul</p>
+      <div class="roadmap">
+        <div class="rm now"><b>Now → 31 Aug</b><span>Finish all books: QA, DILR, VARC, Vocab</span></div>
+        <div class="rm"><b>September</b><span>Sectionals + first full mocks</span></div>
+        <div class="rm"><b>Oct → Nov</b><span>Full mocks, analysis & revision</span></div>
+        <div class="rm exam"><b>29 Nov</b><span>CAT 2026 🎯</span></div>
+      </div>
+    </div>
+
+    <div class="grid cols-4 mt16">
+      ${SUBJECTS.map((s) => { const m = SUB_META[s]; const p = subPct(s);
+        return `<div class="card" style="background:linear-gradient(180deg,${m.soft},#fff 72%)"><div class="ringbox">${C.ring(p ?? 0, { size: 104, color: m.color, label: `${m.name} book`, sub: "complete" })}</div></div>`;
+      }).join("")}
     </div>
 
     <div class="card mt16">
-      <h3>QA Chapters <span class="muted small">Arun Sharma 10th Ed · LOD 2 focus</span></h3>
-      <p class="sub">Track per-chapter completion, remaining questions and the daily pace needed to hit your target date.</p>
+      <h3>Full Syllabus <span class="muted small">all books by 31 Aug · daily plan drives the Today tab</span></h3>
+      <p class="sub">Per-item completion, remaining units and the pace to hit each deadline. Counts for DILR/VARC are estimates, edit any row.</p>
       <div class="field-row">
-        <input class="input" id="chName" placeholder="Chapter name (e.g. Percentages)" style="flex:2">
-        <input class="input sm" id="chTotal" type="number" min="1" placeholder="Total Qs">
+        <input class="input" id="chName" placeholder="Item name" style="flex:2">
+        <select class="input sm" id="chSubject" style="width:90px">${SUBJECTS.map((s) => `<option value="${s}">${SUB_META[s].name}</option>`).join("")}</select>
+        <input class="input sm" id="chTotal" type="number" min="1" placeholder="Total">
         <input class="input sm" id="chDone" type="number" min="0" placeholder="Done">
-        <input class="input" id="chTarget" type="date" style="width:160px">
-        <button class="btn primary" data-act="ch:add">+ Add Chapter</button>
+        <input class="input" id="chTarget" type="date" style="width:150px">
+        <button class="btn primary" data-act="ch:add">+ Add</button>
       </div>
-      <div class="mt8"><button class="btn" data-act="ch:seed">📚 Load Arun Sharma chapters (${ARUN_QA.length})</button>
-        <span class="small muted">adds all chapters with question counts, marks the ${ARUN_DONE.length} you've finished as done · re-click to refresh counts</span></div>
-      ${S.chapters.length ? `<table class="tbl mt12"><thead><tr>
-        <th>Chapter</th><th>Progress</th><th>%</th><th>Remaining</th><th>Pace/day</th><th>Target</th><th>Expected</th><th></th>
-      </tr></thead><tbody>
-        ${S.chapters.map((ch) => {
-          const st = Score.chapterStats(ch);
-          return `<tr>
-            <td><b>${esc(ch.name)}</b></td>
-            <td style="min-width:140px"><span class="num">${st.done}/${ch.total}</span>${C.bar(st.pct, "var(--indigo)")}</td>
-            <td>${pill(st.pct)}</td>
-            <td class="num">${st.remaining}</td>
-            <td class="num">${st.pace == null ? "–" : st.pace + " Qs"}</td>
-            <td class="num">${ch.target ? fmtShort(parseKey(ch.target)) : "–"}</td>
-            <td class="num">${st.expected || "–"}</td>
-            <td><button class="iconbtn" data-act="ch:edit:${ch.id}">Edit</button><button class="iconbtn" data-act="ch:del:${ch.id}">Delete</button></td>
-          </tr>`;
-        }).join("")}
-      </tbody></table>` : `<div class="empty">No chapters yet. Add your first QA chapter above.</div>`}
+      <div class="mt8"><button class="btn primary" data-act="ch:seed">📚 Load full study plan</button>
+        <span class="small muted">QA + DILR + VARC + Vocab with counts &amp; deadlines · keeps your progress · re-click to refresh</span></div>
+      ${SUBJECTS.map((s) => {
+        const items = S.chapters.filter((c) => (c.subject || "qa") === s).sort((a, b) => (a.ord ?? 99) - (b.ord ?? 99));
+        if (!items.length) return "";
+        const m = SUB_META[s];
+        return `<div class="mt16"><h4 style="margin:0 0 4px;display:flex;align-items:center;gap:8px"><span class="dot" style="background:${m.color}"></span>${m.name} <span class="muted small">${items.length} items · ${subPct(s)}% done</span></h4>
+        <table class="tbl"><thead><tr><th>Item</th><th>Progress</th><th>%</th><th>Left</th><th>Pace/day</th><th>Target</th><th></th></tr></thead><tbody>
+          ${items.map((ch) => { const st = Score.chapterStats(ch);
+            return `<tr>
+              <td><b>${esc(ch.name)}</b></td>
+              <td style="min-width:130px"><span class="num">${st.done}/${ch.total}</span>${C.bar(st.pct, m.color)}</td>
+              <td>${pill(st.pct)}</td>
+              <td class="num">${st.remaining}</td>
+              <td class="num">${st.pace == null ? "–" : st.pace + " " + (ch.unit || "Qs")}</td>
+              <td class="num">${ch.target ? fmtShort(parseKey(ch.target)) : "–"}</td>
+              <td><button class="iconbtn" data-act="ch:edit:${ch.id}">Edit</button><button class="iconbtn" data-act="ch:del:${ch.id}">Delete</button></td>
+            </tr>`;
+          }).join("")}
+        </tbody></table></div>`;
+      }).join("") || `<div class="empty">No items yet. Click "Load full study plan" above.</div>`}
     </div>
 
     <div class="grid cols-2 mt16">
@@ -711,15 +757,15 @@
         } else if (arg === "undo") {
           const qa = { ...(r.qa || {}) }; delete qa[arg2]; patchDay({ qa });
         } else if (arg === "today") {
-          const plan = qaPlan(UI.dateKey);
-          if (!plan || plan.done) { toast("All QA chapters done 🎉"); break; }
+          const plan = planFor(arg2 || "qa", UI.dateKey);
+          if (!plan || plan.done) { toast("That subject is all done 🎉"); break; }
           const left = Math.max(0, plan.dailyTarget - plan.doneToday);
           const add = Math.min(left > 0 ? left : plan.dailyTarget, plan.current.st.remaining);
-          if (add <= 0) { toast("Nothing left on the current chapter"); break; }
+          if (add <= 0) { toast("Nothing left on the current item"); break; }
           const id = plan.current.ch.id;
           const qa = { ...(r.qa || {}) }; qa[id] = (qa[id] || 0) + add;
           patchDay({ qa });
-          toast(`+${add} Qs on ${plan.current.ch.name}`);
+          toast(`+${add} ${SUB_META[arg2 || "qa"].unit} on ${plan.current.ch.name}`);
         }
         break;
       case "food":
@@ -751,29 +797,36 @@
           const total = parseInt(document.getElementById("chTotal").value, 10);
           const done = parseInt(document.getElementById("chDone").value, 10) || 0;
           const target = document.getElementById("chTarget").value || null;
-          if (!name || !total) { toast("Chapter needs a name and total questions"); break; }
-          S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name, total, startDone: done, target });
+          const subEl = document.getElementById("chSubject");
+          const subject = subEl ? subEl.value : "qa";
+          if (!name || !total) { toast("Item needs a name and total"); break; }
+          const ord = S.chapters.filter((c) => (c.subject || "qa") === subject).length;
+          S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name, total, startDone: done, target, subject, unit: SUB_META[subject].unit, ord });
           saveState(); render(); toast(`Added ${name}`);
         } else if (arg === "seed") {
+          // build the unified syllabus: subject, unit, order, target per item
+          const plan = [];
+          ARUN_QA.forEach((it, i) => { const o = QA_ORDER.indexOf(it.name); plan.push({ ...it, subject: "qa", unit: SUB_META.qa.unit, ord: o === -1 ? 100 + i : o, done: ARUN_DONE.includes(it.name) }); });
+          DILR_ITEMS.forEach((it, i) => plan.push({ ...it, subject: "dilr", unit: SUB_META.dilr.unit, ord: i, target: AUG, done: false }));
+          VARC_ITEMS.forEach((it, i) => plan.push({ ...it, subject: "varc", unit: SUB_META.varc.unit, ord: i, target: AUG, done: false }));
+          VOCAB_ITEMS.forEach((it, i) => plan.push({ ...it, subject: "vocab", unit: SUB_META.vocab.unit, ord: i, target: VOCAB_END, done: false }));
           const byName = {};
           S.chapters.forEach((c) => { byName[c.name.toLowerCase()] = c; });
           let added = 0, updated = 0;
-          for (const { name, total, target } of ARUN_QA) {
-            const done = ARUN_DONE.includes(name);
-            const existing = byName[name.toLowerCase()];
-            if (existing) {
-              existing.total = total;
-              existing.target = target;
-              if (done) existing.startDone = total;
-              else if (existing.startDone > total) existing.startDone = total;
+          for (const it of plan) {
+            const ex = byName[it.name.toLowerCase()];
+            if (ex) {
+              ex.total = it.total; ex.target = it.target; ex.subject = it.subject; ex.unit = it.unit; ex.ord = it.ord;
+              if (it.done) ex.startDone = it.total;
+              else if (ex.startDone > it.total) ex.startDone = it.total;
               updated++;
             } else {
-              S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name, total, startDone: done ? total : 0, target });
+              S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name: it.name, total: it.total, startDone: it.done ? it.total : 0, target: it.target, subject: it.subject, unit: it.unit, ord: it.ord });
               added++;
             }
           }
           saveState(); render();
-          toast(added ? `Added ${added} chapters${updated ? `, updated ${updated}` : ""}` : `Updated counts for ${updated} chapters`);
+          toast(added ? `Added ${added} items${updated ? `, updated ${updated}` : ""} across 4 subjects` : `Refreshed ${updated} syllabus items`);
         } else if (arg === "del") {
           const ch = S.chapters.find((c) => c.id === arg2);
           if (ch && confirm(`Delete chapter "${ch.name}"? Its logged questions stay in daily history but stop counting.`)) {

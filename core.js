@@ -167,10 +167,13 @@
     return { done, pct, remaining, pace, daysLeft, expected };
   }
 
+  // Only QA-subject chapters count toward the QA study score.
+  function qaChapters() { return S.chapters.filter((c) => (c.subject || "qa") === "qa"); }
   function qaScore() {
-    if (!S.chapters.length) return null;
-    const sum = S.chapters.reduce((a, ch) => a + chapterStats(ch).pct, 0);
-    return rnd(sum / S.chapters.length);
+    const qc = qaChapters();
+    if (!qc.length) return null;
+    const sum = qc.reduce((a, ch) => a + chapterStats(ch).pct, 0);
+    return rnd(sum / qc.length);
   }
 
   function weekSum(d, field) {
@@ -278,7 +281,7 @@
     WEIGHTS, clamp, rnd,
     wakeWeek, officeMonth, gymWeek, vitaminsWeek,
     proteinScore, calorieScore, dietDay, dietWeek,
-    chapterDone, chapterStats, qaScore,
+    chapterDone, chapterStats, qaScore, qaChapters,
     dilrWeek, rcWeek, aeonWeek, varcWeek, studyScore,
     categoryScores, overallScore, readinessScore, dailyActivity,
     dailyScores, overallToday,
