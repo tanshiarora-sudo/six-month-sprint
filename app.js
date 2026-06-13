@@ -376,8 +376,9 @@
         <input class="input" id="chTarget" type="date" style="width:150px">
         <button class="btn primary" data-act="ch:add">+ Add</button>
       </div>
-      <div class="mt8"><button class="btn primary" data-act="ch:seed">📚 Load study plan (QA + Vocab)</button>
-        <span class="small muted">20 QA chapters with counts &amp; Jun/Jul deadlines + Word Power (47 sessions) · keeps progress · re-click to refresh</span></div>
+      <div class="mt8 field-row"><button class="btn primary" data-act="ch:seed">📚 Load study plan (QA + Vocab)</button>
+        <button class="btn danger" data-act="ch:fresh">🔄 Start fresh (keep only the 4 done)</button></div>
+      <div class="small muted mt8">Load = add/refresh chapters, keeps your progress. Start fresh = wipe all logs &amp; progress, keep only Averages, Percentages, RPV and Alligations marked done (backup downloads first).</div>
       ${PLAN_SUBJECTS.map((s) => {
         const items = S.chapters.filter((c) => (c.subject || "qa") === s).sort((a, b) => (a.ord ?? 99) - (b.ord ?? 99));
         if (!items.length) return "";
@@ -872,6 +873,13 @@
           }
           saveState(); render();
           toast(added ? `Added ${added} items${updated ? `, updated ${updated}` : ""} across 4 subjects` : `Refreshed ${updated} syllabus items`);
+        } else if (arg === "fresh") {
+          if (!confirm("Start fresh?\n\nThis clears ALL daily logs, mocks, and chapter progress, keeping only the 4 completed QA chapters (Averages, Percentages, RPV, Alligations) marked done.\n\nA backup downloads first. Continue?")) break;
+          downloadExport();
+          S.days = {}; S.mocks = []; S.chapters = [];
+          ARUN_QA.forEach((it, i) => { const o = QA_ORDER.indexOf(it.name); S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name: it.name, total: it.total, startDone: ARUN_DONE.includes(it.name) ? it.total : 0, target: it.target, subject: "qa", unit: SUB_META.qa.unit, ord: o === -1 ? 100 + i : o }); });
+          VOCAB_ITEMS.forEach((it, i) => S.chapters.push({ id: "ch" + Math.random().toString(36).slice(2, 8), name: it.name, total: it.total, startDone: 0, target: VOCAB_END, subject: "vocab", unit: SUB_META.vocab.unit, ord: i }));
+          saveState(); render(); toast("Fresh start: 4 chapters done, everything else cleared");
         } else if (arg === "del") {
           const ch = S.chapters.find((c) => c.id === arg2);
           if (ch && confirm(`Delete chapter "${ch.name}"? Its logged questions stay in daily history but stop counting.`)) {
