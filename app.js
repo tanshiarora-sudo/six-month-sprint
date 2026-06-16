@@ -74,6 +74,12 @@
     { name: "VR: Syllogisms", total: 100 },
     { name: "VR: Logical Deduction", total: 30 },
     { name: "VR: Binary Logic", total: 16 },
+    { name: "DI: Tables", total: 22 },
+    { name: "DI: Bar Graphs", total: 23 },
+    { name: "DI: Line Graphs", total: 20 },
+    { name: "DI: Pie Charts", total: 21 },
+    { name: "DI: Data Caselets", total: 31 },
+    { name: "DI: Misc Charts", total: 28 },
   ];
   // VARC topics from the books (Verbal Ability book + Reading Comprehension book), in study order.
   const VARC_ITEMS = [
@@ -200,21 +206,28 @@
     return { subject, order, current, batch, batchRemaining, daysLeft, dailyTarget, doneToday };
   }
 
-  // DILR rotation: 2 sets/day of a topic that CHANGES daily (variety), weighted to the biggest
-  // remaining topics so the whole bank still finishes by 31 Aug.
-  const SET_Q = 4; // questions per "set"
+  // DILR daily = 1 LR set + 1 DI set, each on a topic that CHANGES daily (variety). Each stream is
+  // paced to finish its bank by 31 Aug (LR ~8 Qs/day, DI ~4 Qs/day), so they wrap up inside August.
   function dilrPlan(dateKey) {
     const items = S.chapters.filter((c) => c.subject === "dilr").map((ch) => ({ ch, st: Score.chapterStats(ch) }));
     if (!items.length) return null;
-    const incomplete = items.filter((x) => x.st.remaining > 0);
-    if (!incomplete.length) return { items, done: true };
-    const sorted = incomplete.slice().sort((a, b) => b.st.remaining - a.st.remaining || (a.ch.ord ?? 0) - (b.ch.ord ?? 0));
+    const isDI = (x) => /^DI:/.test(x.ch.name);
     const dayIdx = Math.max(0, Math.round((parseKey(dateKey) - parseKey(PLAN_START)) / 86400000));
-    const K = Math.min(sorted.length, 3);            // rotate among the 3 most-remaining topics
-    const current = sorted[dayIdx % K];
-    const doneToday = (S.days[dateKey]?.qa || {})[current.ch.id] || 0;
-    const target = Math.min(2 * SET_Q, doneToday + current.st.remaining); // 2 sets, capped to finish a small topic
-    return { items, current, target, doneToday, sets: 2 };
+    const daysLeft = Math.max(1, Math.round((parseKey(AUG) - parseKey(dateKey)) / 86400000) + 1);
+    const pick = (pool, minChunk) => {
+      const inc = pool.filter((x) => x.st.remaining > 0);
+      if (!inc.length) return null;
+      const sorted = inc.slice().sort((a, b) => b.st.remaining - a.st.remaining || (a.ch.ord ?? 0) - (b.ch.ord ?? 0));
+      const current = sorted[dayIdx % Math.min(sorted.length, 3)]; // rotate among the 3 most-remaining
+      const rem = inc.reduce((a, x) => a + x.st.remaining, 0);
+      const chunk = Math.max(minChunk, Math.ceil(rem / daysLeft));
+      const doneToday = (S.days[dateKey]?.qa || {})[current.ch.id] || 0;
+      return { current, target: Math.min(chunk, doneToday + current.st.remaining), doneToday };
+    };
+    const lr = pick(items.filter((x) => !isDI(x)), 8);
+    const di = pick(items.filter((x) => isDI(x)), 4);
+    if (!lr && !di) return { items, done: true };
+    return { items, lr, di };
   }
   const qaPlan = (dateKey) => planFor("qa", dateKey);
   const selDate = () => parseKey(UI.dateKey);
@@ -277,11 +290,15 @@
       // each subject's tile shows the current topic to do today; reading is a simple 20-min tile
       const verb = { qa: (n) => `${n} questions`, varc: () => "1 exercise", vocab: () => "1 session" };
       const tgts = PLAN_SUBJECTS.map((sub) => {
-        if (sub === "dilr") { // rotating topic, 2 sets/day
+        if (sub === "dilr") { // 1 LR set + 1 DI set, rotating topics
           const p = dilrPlan(UI.dateKey);
           if (!p) return { sub, missing: true, goal: 0, done: 0, label: "load plan in Study tab", note: "" };
           if (p.done) return { sub, goal: 0, done: 0, label: "all done 🎉", note: "" };
-          return { sub, goal: p.target, done: p.doneToday, label: `2 sets (${p.target} Qs)`, note: p.current.ch.name };
+          const goal = (p.lr ? p.lr.target : 0) + (p.di ? p.di.target : 0);
+          const done = (p.lr ? p.lr.doneToday : 0) + (p.di ? p.di.doneToday : 0);
+          const label = p.lr && p.di ? "1 LR set + 1 DI set" : p.lr ? "1 LR set" : "1 DI set";
+          const note = [p.lr && p.lr.current.ch.name, p.di && p.di.current.ch.name].filter(Boolean).join("  +  ");
+          return { sub, goal, done, label, note };
         }
         const p = planFor(sub, UI.dateKey);
         if (!p) return { sub, missing: true, goal: 0, done: 0, label: "load plan in Study tab", note: "" };
@@ -835,10 +852,18 @@
         if (arg === "dilr") {
           const p = dilrPlan(UI.dateKey);
           if (!p || p.done) { toast("DILR all done 🎉"); break; }
-          const id = p.current.ch.id;
           const qa = { ...(r.qa || {}) };
-          if ((qa[id] || 0) >= p.target) { delete qa[id]; patchDay({ qa }); toast("DILR un-ticked for today"); }
-          else { qa[id] = p.target; patchDay({ qa }); toast(`DILR done ✓ — 2 sets of ${p.current.ch.name}`); }
+          const lrDone = !p.lr || (qa[p.lr.current.ch.id] || 0) >= p.lr.target;
+          const diDone = !p.di || (qa[p.di.current.ch.id] || 0) >= p.di.target;
+          if (lrDone && diDone) {
+            if (p.lr) delete qa[p.lr.current.ch.id];
+            if (p.di) delete qa[p.di.current.ch.id];
+            patchDay({ qa }); toast("DILR un-ticked for today");
+          } else {
+            if (p.lr) qa[p.lr.current.ch.id] = p.lr.target;
+            if (p.di) qa[p.di.current.ch.id] = p.di.target;
+            patchDay({ qa }); toast("DILR done ✓ — 1 LR + 1 DI set");
+          }
         } else if (PLAN_SUBJECTS.includes(arg)) {
           const p = planFor(arg, UI.dateKey);
           if (!p) { toast("Load the plan in the Study tab first"); break; }
