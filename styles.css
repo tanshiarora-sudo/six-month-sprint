@@ -259,10 +259,21 @@ input, select { font: inherit; color: inherit; }
 .tgt-goal { font-size: 18px; font-weight: 800; margin-top: 12px; letter-spacing: -.02em; color: var(--ink); }
 .tgt-note { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .tgt-prog { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: auto; padding-top: 8px; font-variant-numeric: tabular-nums; }
-.qa-edit { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: 11px; color: var(--muted); font-weight: 600; cursor: default; }
-.qa-num { width: 52px; padding: 4px 6px; border: 1.5px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.85);
-  font-size: 13px; font-weight: 800; color: var(--ink); text-align: center; font-variant-numeric: tabular-nums; }
-.qa-num:focus { outline: none; border-color: var(--c); }
+.tgt-edit { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--muted); font-weight: 600; cursor: default; }
+.tgt-num { width: 58px; padding: 5px 7px; border: 1.5px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.85);
+  font-size: 14px; font-weight: 800; color: var(--ink); text-align: center; font-variant-numeric: tabular-nums; }
+.tgt-num:focus { outline: none; border-color: var(--c); }
+
+/* confetti celebration */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
+.confetti i { position: absolute; top: -16px; width: 9px; height: 15px; border-radius: 2px; opacity: 0;
+  animation: confetti-fall 1.35s cubic-bezier(.3,.6,.5,1) forwards; }
+@keyframes confetti-fall {
+  0% { transform: translate(0, -10px) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  100% { transform: translate(calc(var(--dx) * 160px), 104vh) rotate(var(--r)); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }
 
 /* category trends (dashboard) */
 .trend-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 6px; }

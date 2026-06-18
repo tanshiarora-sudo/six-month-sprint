@@ -247,6 +247,59 @@
   const day = () => getDay(UI.dateKey, false);
   const patchDay = (p) => { setDay(UI.dateKey, p); render(); };
   const pill = (p) => `<span class="pill ${p >= 75 ? "good" : p >= 45 ? "mid" : "low"}">${Math.round(p)}%</span>`;
+
+  // Log an EXACT amount for a target's current item(s) today. Returns whether the target is now complete.
+  const STUDY_TGT = new Set(["qa", "lr", "di", "varc", "vocab", "read"]);
+  function manualLog(sub, n) {
+    n = Math.max(0, parseInt(n, 10) || 0);
+    const r = day();
+    if (sub === "read") { setDay(UI.dateKey, { readMin: n }); render(); return n >= 20; }
+    const qa = { ...(r.qa || {}) };
+    let goal = 1, doneNow = 0;
+    if (sub === "qa" || sub === "vocab") {
+      const chs = S.chapters.filter((c) => (c.subject || "qa") === sub);
+      const order = chs
+        .map((ch) => ({ ch, room: Score.chapterStats(ch).remaining + ((r.qa || {})[ch.id] || 0) }))
+        .sort((a, b) => (a.ch.ord ?? 99) - (b.ch.ord ?? 99));
+      chs.forEach((c) => { delete qa[c.id]; });
+      let need = n;
+      for (const x of order) { if (need <= 0) break; const add = Math.min(need, x.room); if (add > 0) { qa[x.ch.id] = add; need -= add; } }
+      doneNow = n - need;
+      const plan = planFor(sub, UI.dateKey);
+      goal = sub === "qa" ? (plan && plan.dailyTarget) || 1 : 1;
+    } else if (sub === "lr" || sub === "di" || sub === "varc") {
+      const p = sub === "varc" ? varcPlan(UI.dateKey) : dilrPlan(UI.dateKey);
+      const part = sub === "varc" ? p : (p && p[sub]);
+      if (!part || !part.current) { toast(sub.toUpperCase() + " all done 🎉"); return false; }
+      const id = part.current.ch.id;
+      const room = part.current.st.remaining + ((r.qa || {})[id] || 0);
+      doneNow = Math.min(n, room);
+      if (doneNow > 0) qa[id] = doneNow; else delete qa[id];
+      goal = part.target;
+    }
+    setDay(UI.dateKey, { qa });
+    render();
+    return doneNow >= goal;
+  }
+
+  // Lightweight, dependency-free confetti burst — a little reward for study wins.
+  function celebrate() {
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const colors = ["var(--indigo)", "var(--pink)", "var(--teal)", "var(--green)", "var(--orange)", "#c98a2b"];
+    const wrap = document.createElement("div");
+    wrap.className = "confetti";
+    for (let i = 0; i < 42; i++) {
+      const p = document.createElement("i");
+      p.style.left = (8 + Math.random() * 84).toFixed(1) + "%";
+      p.style.background = colors[i % colors.length];
+      p.style.animationDelay = (Math.random() * 0.18).toFixed(2) + "s";
+      p.style.setProperty("--dx", (Math.random() * 2 - 1).toFixed(2));
+      p.style.setProperty("--r", Math.floor(Math.random() * 540) + "deg");
+      wrap.appendChild(p);
+    }
+    document.body.appendChild(wrap);
+    setTimeout(() => wrap.remove(), 1500);
+  }
   const toast = (msg) => {
     const t = document.getElementById("toast");
     t.textContent = msg; t.classList.add("show");
@@ -332,12 +385,13 @@
             const m = t.sub === "read" ? { name: "Reading", color: t.color, soft: t.soft } : SUB_META[t.sub];
             const na = t.goal === 0;
             const done = !na && t.done >= t.goal;
+            const munit = t.sub === "read" ? "min" : t.sub === "varc" ? "exercises" : t.sub === "vocab" ? "sessions" : "Qs";
             return `<div class="tgt ${done ? "hit" : na ? "na" : ""}" ${na ? "" : `data-act="tgt:${t.sub}" role="button" tabindex="0" title="${done ? "tap to undo" : "tap to mark done"}"`} style="--c:${m.color};--s:${m.soft}">
               <div class="tgt-head"><span class="tgt-name">${m.name}</span>${na ? `<span class="yn done">${t.missing ? "—" : "✓ done"}</span>` : done ? `<span class="yn yes">YES ✓</span>` : `<span class="yn no">tap to log</span>`}</div>
               <div class="tgt-goal">${t.label}</div>
               ${t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
               ${na ? "" : `<div class="tgt-prog">${t.done}/${t.goal}</div>`}
-              ${na || t.sub !== "qa" ? "" : `<div class="qa-edit" data-act="qa:edit">did <input type="number" min="0" inputmode="numeric" class="qa-num" value="${t.done}" data-act="qa:set" aria-label="QA questions done today"> Qs</div>`}
+              ${na ? "" : `<div class="tgt-edit" data-act="mlog:edit">did <input type="number" min="0" inputmode="numeric" class="tgt-num" value="${t.done}" data-act="mlog:${t.sub}" aria-label="${m.name} done today"> ${munit}</div>`}
             </div>`;
           }).join("")}
         </div>
@@ -905,7 +959,7 @@
           const id = part.current.ch.id;
           const qa = { ...(r.qa || {}) };
           if ((qa[id] || 0) >= part.target) { delete qa[id]; patchDay({ qa }); toast(nm + " un-ticked for today"); }
-          else { qa[id] = part.target; patchDay({ qa }); toast(`${nm} done ✓ — ${part.current.ch.name}`); }
+          else { qa[id] = part.target; patchDay({ qa }); toast(`${nm} done ✓ — ${part.current.ch.name}`); celebrate(); }
         } else if (PLAN_SUBJECTS.includes(arg)) {
           const p = planFor(arg, UI.dateKey);
           if (!p) { toast("Load the plan in the Study tab first"); break; }
@@ -920,9 +974,9 @@
           } else {
             let need = target - doneToday;                        // tick: log up to target, flowing across topics
             for (const x of p.order) { if (need <= 0) break; const add = Math.min(need, x.st.remaining); if (add > 0) { qa[x.ch.id] = (qa[x.ch.id] || 0) + add; need -= add; } }
-            patchDay({ qa }); toast(`${SUB_META[arg].name} done for today ✓`);
+            patchDay({ qa }); toast(`${SUB_META[arg].name} done for today ✓`); celebrate();
           }
-        } else if (arg === "read") { const on = (r.readMin || 0) >= 20; patchDay({ readMin: on ? 0 : 20 }); }
+        } else if (arg === "read") { const on = (r.readMin || 0) >= 20; patchDay({ readMin: on ? 0 : 20 }); if (!on) celebrate(); }
         break;
       }
       case "mock":
@@ -1070,19 +1124,12 @@
         render();
       }
     }
-    if (el.matches('[data-act="qa:set"]')) {
-      // Log an EXACT number of QA questions for the day, filled across the plan in order.
-      const r = day();
-      const qa = { ...(r.qa || {}) };
-      const qaChs = S.chapters.filter((c) => (c.subject || "qa") === "qa");
-      const order = qaChs
-        .map((ch) => ({ ch, room: Score.chapterStats(ch).remaining + ((r.qa || {})[ch.id] || 0) })) // room if today were 0
-        .sort((a, b) => (a.ch.ord ?? 99) - (b.ch.ord ?? 99));
-      qaChs.forEach((c) => { delete qa[c.id]; });          // reset today's QA, then re-fill to the typed count
-      let need = Math.max(0, parseInt(el.value, 10) || 0);
-      for (const x of order) { if (need <= 0) break; const add = Math.min(need, x.room); if (add > 0) { qa[x.ch.id] = add; need -= add; } }
-      setDay(UI.dateKey, { qa }); render();
-      toast(need > 0 ? "Logged the max left in your QA plan" : "QA updated for today");
+    if (el.matches('[data-act^="mlog:"]')) {
+      // Manual exact-count log for any target tile (QA, LR, DI, VARC, Vocab, Reading).
+      const sub = el.dataset.act.split(":")[1];
+      if (sub === "edit") return;
+      const completed = manualLog(sub, el.value);
+      if (completed && STUDY_TGT.has(sub)) celebrate();
     }
     if (el.matches('[data-act="vocab:pages"]')) { setDay(UI.dateKey, { vocabPages: Math.max(0, parseInt(el.value, 10) || 0) }); render(); }
     if (el.matches('[data-act="read:min"]')) { setDay(UI.dateKey, { readMin: Math.max(0, parseInt(el.value, 10) || 0) }); render(); }
