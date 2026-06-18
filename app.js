@@ -387,11 +387,10 @@
             const done = !na && t.done >= t.goal;
             const munit = t.sub === "read" ? "min" : t.sub === "varc" ? "exercises" : t.sub === "vocab" ? "sessions" : "Qs";
             return `<div class="tgt ${done ? "hit" : na ? "na" : ""}" ${na ? "" : `data-act="tgt:${t.sub}" role="button" tabindex="0" title="${done ? "tap to undo" : "tap to mark done"}"`} style="--c:${m.color};--s:${m.soft}">
-              <div class="tgt-head"><span class="tgt-name">${m.name}</span>${na ? `<span class="yn done">${t.missing ? "—" : "✓ done"}</span>` : done ? `<span class="yn yes">YES ✓</span>` : `<span class="yn no">tap to log</span>`}</div>
+              <div class="tgt-head"><span class="tgt-name"><span class="dot" style="background:${m.color}"></span> ${m.name}</span>${na ? `<span class="yn done">${t.missing ? "—" : "✓"}</span>` : done ? `<span class="yn yes">✓</span>` : `<span class="yn no">log</span>`}</div>
               <div class="tgt-goal">${t.label}</div>
               ${t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
-              ${na ? "" : `<div class="tgt-prog">${t.done}/${t.goal}</div>`}
-              ${na ? "" : `<div class="tgt-edit" data-act="mlog:edit">did <input type="number" min="0" inputmode="numeric" class="tgt-num" value="${t.done}" data-act="mlog:${t.sub}" aria-label="${m.name} done today"> ${munit}</div>`}
+              ${na ? "" : `<div class="tgt-foot"><span class="tgt-prog">${t.done}/${t.goal}</span><span class="tgt-edit" data-act="mlog:edit"><input type="number" min="0" inputmode="numeric" class="tgt-num" value="${t.done}" data-act="mlog:${t.sub}" aria-label="${m.name} done today"> ${munit}</span></div>`}
             </div>`;
           }).join("")}
         </div>
