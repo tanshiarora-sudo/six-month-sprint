@@ -138,26 +138,39 @@
     const s = window.S || {};
     return Object.keys(s.days || {}).length > 0 || (s.chapters || []).length > 0;
   }
-  function autoExportCheck() {
-    // a live linked file is already saving every change, so don't also spam downloads
-    if (status === "on") return;
-    if (!window.exportBackup || !hasData()) return;
+  function autoDue() {
+    if (status === "on") return false;                 // live linked file already covers it
+    if (!window.exportBackup || !hasData()) return false;
     const last = localStorage.getItem(AUTO_KEY);
-    let due = !last;
-    if (last) {
-      const diffDays = (new Date() - new Date(last)) / 86400000;
-      due = diffDays >= AUTO_DAYS;
-    }
-    if (!due) return;
+    if (!last) return true;
+    return (new Date() - new Date(last)) / 86400000 >= AUTO_DAYS;
+  }
+  function autoExportCheck() {
+    // Only ever fires from inside a real user gesture (see armAutoExport) so Safari
+    // doesn't pop the "allow downloads" prompt for an unsolicited page-load download.
+    if (!autoDue()) return;
     try {
       window.exportBackup();
       localStorage.setItem(AUTO_KEY, new Date().toISOString());
       if (window.toast) window.toast("Auto-backup saved to your Downloads 💾");
     } catch (e) { console.warn("auto-export failed", e); }
   }
+  // Wait for the user's first tap/click this session, then run the overdue check once.
+  // A download triggered by a user gesture is allowed cleanly; one fired on load is not.
+  function armAutoExport() {
+    let done = false;
+    const run = () => {
+      if (done) return; done = true;
+      document.removeEventListener("pointerdown", run, true);
+      document.removeEventListener("keydown", run, true);
+      setTimeout(autoExportCheck, 0);
+    };
+    document.addEventListener("pointerdown", run, true);
+    document.addEventListener("keydown", run, true);
+  }
 
   window.Backup = { supported, link, unlock, write, snapshot, latestSnapshot, refresh, state: () => status, autoExportCheck };
   init();
-  // run after the rest of the app has loaded (this script loads before app.js)
-  window.addEventListener("load", () => setTimeout(autoExportCheck, 1800));
+  // arm (don't fire) the auto-export after the app has loaded
+  window.addEventListener("load", () => setTimeout(armAutoExport, 1800));
 })();
