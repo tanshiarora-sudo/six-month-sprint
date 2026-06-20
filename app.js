@@ -479,6 +479,13 @@
               <button class="btn ghost" data-act="meal:closeadd">✕</button>
               <div class="suggest" id="foodSuggest" style="display:none"></div>
             </div>
+            <div class="custom-row mt8">
+              <span class="custom-lbl">or enter your own</span>
+              <input class="input" style="flex:1;min-width:90px" id="customName" placeholder="Item name (optional)" autocomplete="off">
+              <input class="input sm" type="number" min="0" inputmode="numeric" id="customCal" placeholder="kcal">
+              <input class="input sm" type="number" min="0" step="0.1" inputmode="decimal" id="customPro" placeholder="protein g">
+              <button class="btn primary" data-act="food:custom">Add</button>
+            </div>
             ${recentChips()}` : `<div class="addfood-row"><button class="addfood" data-act="meal:add:${m.id}">+ Add Food</button></div>`}
           </div>`;
         }).join("")}
@@ -852,6 +859,10 @@
     };
     inp.addEventListener("input", update);
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") commitFood(); });
+    ["customName", "customCal", "customPro"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("keydown", (e) => { if (e.key === "Enter") addCustomFood(); });
+    });
     // input only exists while a meal's Add Food is open; focus without scrolling the page
     inp.focus({ preventScroll: true });
     if (UI.foodQuery) {
@@ -876,6 +887,25 @@
     UI.foodQuery = "";
     render();
     toast(`Added ${qty} × ${food.n} · ${Math.round(food.c * qty)} kcal, ${Math.round(food.p * qty * 10) / 10}g protein`);
+  }
+
+  // Log an item with calories/protein typed by hand (no database lookup).
+  function addCustomFood() {
+    const calEl = document.getElementById("customCal");
+    const proEl = document.getElementById("customPro");
+    const nmEl = document.getElementById("customName");
+    if (!calEl) return;
+    const cal = parseFloat(calEl.value);
+    const pro = parseFloat(proEl.value) || 0;
+    const nm = (nmEl.value || "").trim();
+    if (isNaN(cal) && !pro) { toast("Enter calories or protein"); return; }
+    const c = isNaN(cal) ? 0 : cal;
+    const r = getDay(UI.dateKey, true);
+    r.foods = r.foods || [];
+    r.foods.push({ name: nm || "Custom item", qty: 1, unit: "serving", cal: c, p: pro, unitCal: c, unitP: pro, meal: UI.addingMeal || defaultMeal() });
+    setDay(UI.dateKey, { foods: r.foods });
+    render();
+    toast(`Added ${nm || "custom item"}`);
   }
 
   function commitFood() {
@@ -1016,6 +1046,7 @@
         break;
       case "food":
         if (arg === "add") commitFood();
+        else if (arg === "custom") addCustomFood();
         else if (arg === "del") { const foods = r.foods.slice(); foods.splice(Number(arg2), 1); patchDay({ foods }); }
         else if (arg === "recent") {
           const t = (UI._recent || [])[Number(arg2)];
