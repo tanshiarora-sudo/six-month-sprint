@@ -243,6 +243,27 @@
     return v ? v : { done: true };
   }
   const qaPlan = (dateKey) => planFor("qa", dateKey);
+  // QA's daily target can span several chapters (a topic may have fewer left than the day's goal).
+  // Split it into per-topic counts, stable for the day, capped at what's actually left so it's completable.
+  function qaBreakdown(dateKey) {
+    const plan = planFor("qa", dateKey);
+    if (!plan || plan.done) return null;
+    const rec = S.days[dateKey] || {};
+    const logged = (ch) => (rec.qa || {})[ch.id] || 0;
+    let need = plan.dailyTarget;
+    const parts = [];
+    for (const x of plan.order) {
+      if (need <= 0) break;
+      const cap = x.st.remaining + logged(x.ch);   // capacity today if it had started at 0
+      if (cap <= 0) continue;
+      const target = Math.min(need, cap);
+      parts.push({ ch: x.ch, target, done: Math.min(logged(x.ch), target) });
+      need -= target;
+    }
+    const goal = parts.reduce((a, p) => a + p.target, 0);
+    const done = parts.reduce((a, p) => a + p.done, 0);
+    return { parts, goal, done };
+  }
   const selDate = () => parseKey(UI.dateKey);
   const day = () => getDay(UI.dateKey, false);
   const patchDay = (p) => { setDay(UI.dateKey, p); render(); };
@@ -265,8 +286,7 @@
       let need = n;
       for (const x of order) { if (need <= 0) break; const add = Math.min(need, x.room); if (add > 0) { qa[x.ch.id] = add; need -= add; } }
       doneNow = n - need;
-      const plan = planFor(sub, UI.dateKey);
-      goal = sub === "qa" ? (plan && plan.dailyTarget) || 1 : 1;
+      goal = sub === "qa" ? (qaBreakdown(UI.dateKey)?.goal || 1) : 1;
     } else if (sub === "lr" || sub === "di" || sub === "varc") {
       const p = sub === "varc" ? varcPlan(UI.dateKey) : dilrPlan(UI.dateKey);
       const part = sub === "varc" ? p : (p && p[sub]);
@@ -371,8 +391,11 @@
         const p = planFor(sub, UI.dateKey);
         if (!p) return { sub, missing: true, goal: 0, done: 0, label: "load plan in Study tab", note: "" };
         if (p.done) return { sub, goal: 0, done: 0, label: "all done 🎉", note: "" };
-        const target = sub === "qa" ? p.dailyTarget : 1;
-        return { sub, goal: target, done: p.doneToday, label: sub === "qa" ? `${target} questions` : "1 session", note: p.current.ch.name };
+        if (sub === "qa") {
+          const bd = qaBreakdown(UI.dateKey);
+          return { sub, goal: bd.goal, done: bd.done, label: `${bd.goal} questions today`, breakdown: bd.parts };
+        }
+        return { sub, goal: 1, done: p.doneToday, label: "1 session", note: p.current.ch.name };
       });
       tgts.push({ sub: "read", goal: 20, done: r.readMin || 0, label: "20 minutes", note: "daily reading", color: "var(--green)", soft: "var(--green-soft)" });
       const hitN = tgts.filter((t) => t.goal > 0 && t.done >= t.goal).length;
@@ -389,7 +412,7 @@
             return `<div class="tgt ${done ? "hit" : na ? "na" : ""}" ${na ? "" : `data-act="tgt:${t.sub}" role="button" tabindex="0" title="${done ? "tap to undo" : "tap to mark done"}"`} style="--c:${m.color};--s:${m.soft}">
               <div class="tgt-head"><span class="tgt-name"><span class="dot" style="background:${m.color}"></span> ${m.name}</span>${na ? `<span class="yn done">${t.missing ? "—" : "✓"}</span>` : done ? `<span class="yn yes">✓</span>` : `<span class="yn no">log</span>`}</div>
               <div class="tgt-goal">${t.label}</div>
-              ${t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
+              ${t.breakdown ? `<div class="tgt-list">${t.breakdown.map((b) => `<div class="tgt-li ${b.done >= b.target ? "ok" : ""}"><span>${esc(b.ch.name)}</span><b>${b.done}/${b.target}</b></div>`).join("")}</div>` : t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
               ${na ? "" : `<div class="tgt-foot"><span class="tgt-prog">${t.done}/${t.goal}</span><span class="tgt-edit" data-act="mlog:edit"><input type="number" min="0" inputmode="numeric" class="tgt-num" value="${t.done}" data-act="mlog:${t.sub}" aria-label="${m.name} done today"> ${munit}</span></div>`}
             </div>`;
           }).join("")}
@@ -996,7 +1019,7 @@
           const chs = S.chapters.filter((c) => (c.subject || "qa") === arg);
           const qa = { ...(r.qa || {}) };
           const doneToday = chs.reduce((a, c) => a + (qa[c.id] || 0), 0);
-          const target = arg === "qa" ? p.dailyTarget : 1;
+          const target = arg === "qa" ? (qaBreakdown(UI.dateKey)?.goal || p.dailyTarget) : 1;
           if (doneToday >= target) {
             chs.forEach((c) => { delete qa[c.id]; });            // untick: clear today's logs for this subject
             patchDay({ qa }); toast(SUB_META[arg].name + " un-ticked for today");
