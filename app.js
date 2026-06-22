@@ -461,6 +461,7 @@
         <p class="sub">Iron & B12 daily · Vitamin D weekly</p>
         <div class="row"><span class="lbl">Iron</span><button class="check ${r.iron ? "on" : ""}" data-act="vit:iron">✓</button></div>
         <div class="row"><span class="lbl">B12</span><button class="check ${r.b12 ? "on" : ""}" data-act="vit:b12">✓</button></div>
+        <div class="row"><span class="lbl">Amla shot</span><button class="check ${r.amla ? "on" : ""}" data-act="vit:amla">✓</button></div>
         ${(!vw.vitd || r.vitd) ? `<div class="row"><span class="lbl">Vitamin D <span class="hint">${r.vitd ? "done today" : "due this week"}</span></span><button class="check ${r.vitd ? "on" : ""}" data-act="vit:vitd">✓</button></div>` : `<div class="row"><span class="lbl muted">Vitamin D <span class="hint">✓ done this week</span></span></div>`}
         <div class="row"><span class="hint">Week doses</span><b>${vw.done}/${vw.required} · ${Math.round(vw.score)}%</b></div>
       </div>
