@@ -428,7 +428,9 @@
           <button class="${r.wake === true ? "on yes" : ""}" data-act="wake:yes">Woke up ✓</button>
           <button class="${r.wake === false ? "on no" : ""}" data-act="wake:no">Missed</button>
         </div>
-        <div class="row mt12"><span class="lbl">Woke up at <span class="hint">(for your record)</span></span><input class="input sm" type="time" value="${r.wakeTime || ""}" data-act="wake:time"></div>
+        <div class="row mt12"><span class="lbl">Woke up at ${r.wakeTime ? `<span class="hint">${Math.round(Score.wakeDayScore(r) / 10)}/10 pts</span>` : `<span class="hint">earlier = more pts</span>`}</span><input class="input sm" type="time" value="${r.wakeTime || ""}" data-act="wake:time"></div>
+        <details class="wake-tiers"><summary>How points work</summary>
+          <div class="tier-grid">${[["before 5:30", 10], ["5:30–6", 9], ["6–6:30", 8], ["6:30–7", 7], ["7–8", 5], ["8–9", 2], ["after 9", 0]].map(([t, p]) => `<span>${t}</span><b>${p}</b>`).join("")}</div></details>
         <div class="row mt12"><span class="hint">This week</span><b>${ww.yes}/${ww.target} days · ${Math.round(ww.score)}%</b></div>
       </div>
 

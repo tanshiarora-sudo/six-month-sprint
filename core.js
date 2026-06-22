@@ -98,10 +98,33 @@
     return weekKeys(d).filter((k) => k >= PLAN_START).length;
   }
 
+  // Wake score by the time you got up (out of 100 → the 10% category): earlier = more.
+  // before 5:30 →100 · 5:30-6 →90 · 6-6:30 →80 · 6:30-7 →70 · 7-8 →50 · 8-9 →20 · 9+ →0
+  function wakeTierScore(t) {
+    if (!t) return 0;
+    const [h, m] = String(t).split(":").map(Number);
+    if (isNaN(h)) return 0;
+    const mins = h * 60 + (m || 0);
+    if (mins < 330) return 100;
+    if (mins < 360) return 90;
+    if (mins < 390) return 80;
+    if (mins < 420) return 70;
+    if (mins < 480) return 50;
+    if (mins < 540) return 20;
+    return 0;
+  }
+  // A day's wake score: missed → 0; time logged → tier; woke up without a time → full credit.
+  function wakeDayScore(r) {
+    if (!r || r.wake === false) return 0;
+    if (r.wakeTime) return wakeTierScore(r.wakeTime);
+    return r.wake === true ? 100 : 0;
+  }
   function wakeWeek(d) {
-    const yes = weekKeys(d).filter((k) => S.days[k] && S.days[k].wake === true).length;
-    const target = Math.max(1, weekAvail(d));
-    return { yes, target, score: clamp((yes / target) * 100) };
+    const keys = weekKeys(d).filter((k) => k >= PLAN_START);
+    const target = Math.max(1, keys.length);
+    const yes = keys.filter((k) => { const r = S.days[k]; return r && (r.wake === true || (r.wakeTime && r.wake !== false)); }).length;
+    const sum = keys.reduce((a, k) => a + wakeDayScore(S.days[k]), 0);
+    return { yes, target, score: clamp(sum / target) };
   }
 
   // Expected = working days in the month from the plan start onward (don't count days before tracking began).
@@ -276,7 +299,7 @@
   function dailyScores(key) {
     const r = S.days[key] || DEFAULT_DAY();
     const d = parseKey(key);
-    const wake = r.wake === true ? 100 : 0;
+    const wake = wakeDayScore(r);
     const office = isWorkingDay(d) ? ((r.office === "office" || r.office === "wfh") ? 100 : 0) : null;
     const gym = r.gymClass ? 100 : r.steps10k ? 25 : 0;
     const vitDone = (r.iron ? 1 : 0) + (r.b12 ? 1 : 0) + (r.vitd ? 1 : 0);
@@ -331,7 +354,7 @@
 
   window.Score = {
     WEIGHTS, clamp, rnd,
-    wakeWeek, officeMonth, gymWeek, vitaminsWeek,
+    wakeWeek, wakeTierScore, wakeDayScore, officeMonth, gymWeek, vitaminsWeek,
     proteinScore, calorieScore, dietDay, dietWeek,
     chapterDone, chapterStats, qaScore, qaChapters,
     dilrWeek, rcWeek, vaWeek, aeonWeek, varcWeek, vocabWeek, varcBlockWeek, studyScore, readingWeek, readingStreak,
