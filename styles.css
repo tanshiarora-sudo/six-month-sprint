@@ -180,6 +180,8 @@ input, select { font: inherit; color: inherit; }
 .input.sm { width: 90px; padding: 6px 9px; }
 .field-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
+.journal { width: 100%; margin-top: 6px; resize: vertical; min-height: 64px; line-height: 1.5; font-family: inherit; }
+
 /* Wake-up tier guide */
 .wake-tiers { margin-top: 10px; }
 .wake-tiers summary { font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; }

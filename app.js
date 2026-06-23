@@ -518,6 +518,12 @@
         }).join("")}
       </div>
 
+      <div class="card span-3">
+        <h3><span class="dot" style="background:var(--indigo)"></span> Journal <span class="muted small">optional · not scored</span></h3>
+        <p class="sub">A line on how today went — wins, mood, what to fix tomorrow.</p>
+        <textarea class="input journal" rows="3" placeholder="Write anything here…" data-act="journal">${esc(r.journal || "")}</textarea>
+      </div>
+
     </div>`;
   }
 
@@ -931,6 +937,7 @@
     r.foods = r.foods || [];
     r.foods.push({ name: nm || "Custom item", qty: 1, unit: "serving", cal: c, p: pro, unitCal: c, unitP: pro, meal: UI.addingMeal || defaultMeal() });
     setDay(UI.dateKey, { foods: r.foods });
+    if (nm) FoodDB.saveCustomFood({ name: nm, cal: c, p: pro, unit: "serving" }); // remember for next time
     render();
     toast(`Added ${nm || "custom item"}`);
   }
@@ -960,6 +967,7 @@
         r.foods = r.foods || [];
         r.foods.push({ name: p, qty: 1, unit: "serving", cal, p: pro, unitCal: cal, unitP: pro, meal: UI.addingMeal || defaultMeal() });
         setDay(UI.dateKey, { foods: r.foods });
+        FoodDB.saveCustomFood({ name: p, cal, p: pro, unit: "serving" }); // remember for next time
         added++;
       }
     }
@@ -1168,6 +1176,7 @@
       UI.dateKey = v; render();
     }
     if (el.matches('[data-act="wake:time"]')) { setDay(UI.dateKey, { wakeTime: el.value || null }); }
+    if (el.matches('[data-act="journal"]')) { setDay(UI.dateKey, { journal: el.value }); }
     if (el.matches('[data-act="gym:cal"]')) setDay(UI.dateKey, { gymCal: parseInt(el.value, 10) || null });
     if (el.matches('[data-act="gym:type"]')) { setDay(UI.dateKey, { gymType: el.value || null }); render(); }
     if (el.matches('[data-act^="food:qty:"]')) {

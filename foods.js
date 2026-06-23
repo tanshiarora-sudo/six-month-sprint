@@ -59,8 +59,18 @@ window.FOODS = [
   { n: "Chicken tikka (6 pcs)", u: "plate", c: 280, p: 32, a: ["chicken tikka", "tikka"] },
   { n: "Tandoori chicken (quarter)", u: "quarter", c: 260, p: 30, a: ["tandoori chicken", "tandoori"] },
   { n: "Fish (grilled, 100g)", u: "100g", c: 150, p: 25, a: ["fish", "grilled fish"] },
+  { n: "Prawns (100g, cooked)", u: "100g", c: 99, p: 24, a: ["prawns", "prawn", "shrimp", "jhinga"] },
+  { n: "Chicken sausage (2 pcs)", u: "2 pcs", c: 160, p: 14, a: ["chicken sausage", "sausage"] },
+  { n: "Chicken keema (bowl)", u: "bowl", c: 300, p: 25, a: ["chicken keema", "keema", "minced chicken"] },
+  { n: "Mutton curry (bowl)", u: "bowl", c: 350, p: 24, a: ["mutton curry", "mutton", "lamb curry", "gosht"] },
   { n: "Soya chunks (50g dry)", u: "50g", c: 170, p: 26, a: ["soya", "soya chunks", "soybean", "soya bean"] },
   { n: "Sprouts (bowl)", u: "bowl", c: 120, p: 9, a: ["sprouts", "moong sprouts", "sprout salad"] },
+
+  // Mushroom
+  { n: "Mushroom (sautéed, 100g)", u: "100g", c: 50, p: 3.5, a: ["mushroom", "mushrooms", "sauteed mushroom", "button mushroom"] },
+  { n: "Mushroom curry (bowl)", u: "bowl", c: 200, p: 7, a: ["mushroom curry", "mushroom masala", "matar mushroom", "mushroom gravy"] },
+  { n: "Chicken mushroom (bowl)", u: "bowl", c: 300, p: 28, a: ["chicken mushroom", "mushroom chicken", "chicken with mushroom"] },
+  { n: "Paneer mushroom (bowl)", u: "bowl", c: 320, p: 16, a: ["paneer mushroom", "mushroom paneer"] },
   { n: "Whey protein (1 scoop)", u: "scoop", c: 120, p: 15, a: ["protein shake", "whey", "protein", "whey protein", "scoop whey", "protein scoop", "shake"] },
   { n: "Protein bar", u: "bar", c: 200, p: 20, a: ["protein bar"] },
   { n: "Peanuts (30g)", u: "30g", c: 170, p: 7.5, a: ["peanuts", "groundnut", "moongfali"] },
@@ -207,11 +217,28 @@ window.FOODS = [
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9. ]/g, " ").replace(/\s+/g, " ").trim();
   const sing = (s) => s.replace(/(\w)s\b/g, "$1"); // crude de-pluralizer for matching
 
+  // Built-in foods plus anything the user has saved as a custom item this device.
+  const pool = () => window.FOODS.concat((window.S && window.S.customFoods) || []);
+
+  // Remember a custom item so it shows up in search next time. Deduped by name.
+  function saveCustomFood({ name, cal, p, unit }) {
+    if (!window.S) return;
+    const nm = String(name || "").trim();
+    if (!nm) return;
+    window.S.customFoods = window.S.customFoods || [];
+    const key = nm.toLowerCase();
+    const existing = window.S.customFoods.find((f) => f.n.toLowerCase() === key);
+    const entry = { n: nm, u: unit || "serving", c: Math.round(cal) || 0, p: Math.round((p || 0) * 10) / 10, a: [key], custom: true };
+    if (existing) Object.assign(existing, entry);
+    else window.S.customFoods.push(entry);
+    if (window.saveState) window.saveState();
+  }
+
   function matchFood(query) {
     const q = sing(norm(query));
     if (!q) return null;
     let best = null, bestLen = 0;
-    for (const f of window.FOODS) {
+    for (const f of pool()) {
       for (const alias of f.a) {
         const al = sing(norm(alias));
         if (al === q) return f; // exact alias wins immediately
@@ -225,7 +252,7 @@ window.FOODS = [
     const q = sing(norm(query));
     if (!q) return [];
     const scored = [];
-    for (const f of window.FOODS) {
+    for (const f of pool()) {
       let s = 0;
       for (const alias of f.a) {
         const al = sing(norm(alias));
@@ -291,5 +318,5 @@ window.FOODS = [
     return "🍽️";
   }
 
-  window.FoodDB = { matchFood, searchFoods, parseFoodEntry, emojiFor };
+  window.FoodDB = { matchFood, searchFoods, parseFoodEntry, emojiFor, saveCustomFood };
 })();
