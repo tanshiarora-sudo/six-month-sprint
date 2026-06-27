@@ -278,6 +278,10 @@ input, select { font: inherit; color: inherit; }
 .tgt-num { width: 46px; padding: 4px 5px; border: 1.5px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.9);
   font-size: 13px; font-weight: 800; color: var(--ink); text-align: center; font-variant-numeric: tabular-nums; }
 .tgt-num:focus { outline: none; border-color: var(--c); }
+.step { width: 26px; height: 26px; border-radius: 8px; background: #fff; border: 1.5px solid var(--line);
+  color: var(--c); font-size: 17px; font-weight: 800; line-height: 1; display: grid; place-items: center; flex-shrink: 0; }
+.step:hover { border-color: var(--c); background: var(--s); }
+.tgt-edit .tgt-num { width: 40px; }
 
 /* confetti celebration */
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }

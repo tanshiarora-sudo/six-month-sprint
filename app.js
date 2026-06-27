@@ -413,7 +413,7 @@
               <div class="tgt-head"><span class="tgt-name"><span class="dot" style="background:${m.color}"></span> ${m.name}</span>${na ? `<span class="yn done">${t.missing ? "—" : "✓"}</span>` : done ? `<span class="yn yes">✓</span>` : `<span class="yn no">log</span>`}</div>
               <div class="tgt-goal">${t.label}</div>
               ${t.breakdown ? `<div class="tgt-list">${t.breakdown.map((b) => `<div class="tgt-li ${b.done >= b.target ? "ok" : ""}"><span>${esc(b.ch.name)}</span><b>${b.done}/${b.target}</b></div>`).join("")}</div>` : t.note ? `<div class="tgt-note">${esc(t.note)}</div>` : ""}
-              ${na ? "" : `<div class="tgt-foot"><span class="tgt-prog">${t.done}/${t.goal}</span><span class="tgt-edit" data-act="mlog:edit"><input type="number" min="0" inputmode="numeric" class="tgt-num" value="${t.done}" data-act="mlog:${t.sub}" aria-label="${m.name} done today"> ${munit}</span></div>`}
+              ${na || t.sub === "read" ? (na ? "" : `<div class="tgt-foot"><span class="tgt-prog">${t.done}/${t.goal}</span><span class="tgt-edit" data-act="mlog:edit"><input type="number" min="0" inputmode="numeric" class="tgt-num" value="${t.done}" data-act="mlog:${t.sub}" aria-label="${m.name} done today"> ${munit}</span></div>`) : `<div class="tgt-foot"><span class="tgt-prog">${t.done}/${t.goal}</span><span class="tgt-edit" data-act="mlog:edit"><button class="step" data-act="mstep:${t.sub}:down" aria-label="remove one">−</button><input type="number" min="0" inputmode="numeric" class="tgt-num" value="${t.done}" data-act="mlog:${t.sub}" aria-label="${m.name} done today"><button class="step" data-act="mstep:${t.sub}:up" aria-label="add one">+</button> ${munit}</span></div>`}
             </div>`;
           }).join("")}
         </div>
@@ -1055,6 +1055,17 @@
             patchDay({ qa }); toast(`${SUB_META[arg].name} done for today ✓`); celebrate();
           }
         } else if (arg === "read") { const on = (r.readMin || 0) >= 20; patchDay({ readMin: on ? 0 : 20 }); if (!on) celebrate(); }
+        break;
+      }
+      case "mstep": {
+        // +/- quantity stepper on a study tile: log multiple sets/sessions quickly.
+        const sub = arg, dir = arg2;
+        const step = (sub === "lr" || sub === "di") ? SET_Q : 1;   // LR/DI step by a full set (4 Qs), others by 1
+        const inp = document.querySelector(`[data-act="mlog:${sub}"]`);
+        const cur = inp ? (parseInt(inp.value, 10) || 0) : 0;
+        const next = Math.max(0, cur + (dir === "up" ? step : -step));
+        const completed = manualLog(sub, next);
+        if (dir === "up" && completed && STUDY_TGT.has(sub)) celebrate();
         break;
       }
       case "mock":
