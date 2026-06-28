@@ -17,7 +17,8 @@
 
   // Arun Sharma QA for CAT (10th ed): question counts + plan target dates.
   // done = already finished · "2026-06-30" = June batch · "2026-07-31" = July batch
-  const JUN = "2026-06-30", JUL = "2026-07-31";
+  const JUN = "2026-08-31", JUL = "2026-08-31"; // QA paced evenly to 31 Aug (no June/July crunch)
+  const QA_AIM = 25, QA_CAP = 30; // QA daily target: aim 25/day, never demand more than 30 (backlog stretches the date)
   const ARUN_QA = [
     { name: "Number Systems", total: 135, target: JUL },
     { name: "Progressions and Series", total: 61, target: JUL },
@@ -203,8 +204,14 @@
     const batchRemaining = batchAll.reduce((a, x) => a + x.st.remaining, 0);
     const day0 = parseKey(dateKey), deadline = parseKey(batch);
     const daysLeft = Math.max(1, Math.round((deadline - day0) / 86400000) + 1);
-    // QA paces to its deadline; VARC/Vocab are light "1 of the current topic per day".
-    const dailyTarget = subject === "qa" ? Math.max(1, Math.ceil((batchRemaining + doneToday) / daysLeft)) : 1;
+    // QA: aim QA_AIM/day, but never demand more than QA_CAP — backlog just stretches the timeline
+    // (the finish date floats instead of the daily load spiking). VARC/Vocab stay light (1/day).
+    let dailyTarget = 1;
+    if (subject === "qa") {
+      const paced = Math.ceil((batchRemaining + doneToday) / daysLeft);
+      dailyTarget = Math.min(QA_CAP, Math.max(QA_AIM, paced));      // 25 aim, 30 hard cap
+      dailyTarget = Math.max(1, Math.min(dailyTarget, batchRemaining + doneToday)); // never more than what's left
+    }
     return { subject, order, current, batch, batchRemaining, daysLeft, dailyTarget, doneToday };
   }
 
@@ -1260,6 +1267,14 @@
     } else sessionStorage.setItem("t6-restore-declined", "1");
   })();
 
+  // One-time ease: collapse the old June/July QA crunch into a single even 31-Aug pace.
+  (function easeQADeadlines() {
+    let changed = false;
+    for (const c of S.chapters) {
+      if ((c.subject || "qa") === "qa" && (c.target === "2026-06-30" || c.target === "2026-07-31")) { c.target = "2026-08-31"; changed = true; }
+    }
+    if (changed) saveState();
+  })();
   ensurePlan(); // auto-fill any missing DILR/VARC/Vocab/QA plan items so tiles always have tasks
   render();
 })();
