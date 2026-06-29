@@ -275,13 +275,16 @@ input, select { font: inherit; color: inherit; }
 .tgt-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; }
 .tgt-prog { font-size: 11px; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
 .tgt-edit { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); font-weight: 600; cursor: default; }
-.tgt-num { width: 46px; padding: 4px 5px; border: 1.5px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.9);
+.tgt-num { width: 52px; padding: 4px 5px; border: 1.5px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.9);
   font-size: 13px; font-weight: 800; color: var(--ink); text-align: center; font-variant-numeric: tabular-nums; }
 .tgt-num:focus { outline: none; border-color: var(--c); }
+/* hide native number spinners so multi-digit values aren't clipped */
+.tgt-num::-webkit-inner-spin-button, .tgt-num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.tgt-num { -moz-appearance: textfield; appearance: textfield; }
 .step { width: 26px; height: 26px; border-radius: 8px; background: #fff; border: 1.5px solid var(--line);
   color: var(--c); font-size: 17px; font-weight: 800; line-height: 1; display: grid; place-items: center; flex-shrink: 0; }
 .step:hover { border-color: var(--c); background: var(--s); }
-.tgt-edit .tgt-num { width: 40px; }
+.tgt-edit .tgt-num { width: 50px; }
 
 /* confetti celebration */
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 9999; overflow: hidden; }
