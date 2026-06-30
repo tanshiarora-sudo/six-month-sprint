@@ -652,6 +652,7 @@
     const yk = fmtKey(addDays(today(), -1));
     const tScore = Game.questScore(k), yScore = Game.questScore(yk);
     const beat = Game.goodDay(k);
+    const beatY = Game.beatYesterday(k);
     const streak = Game.currentStreak();
     const bal = Game.balance(), lvl = Game.level();
     const combos = Game.combosFor(k);
@@ -673,13 +674,13 @@
           <div class="q-arrow ${beat ? "win" : ""}">${beat ? "✓" : "→"}</div>
           <div class="q-box"><span class="q-num ${beat ? "win" : ""}">${tScore}%</span><span class="q-lbl">today</span></div>
         </div>
-        <div class="quest-status ${beat ? "win" : ""}">${beat ? `Quest cleared! ${reward ? reward.emoji + " " + reward.text : "+₹" + Game.EARN.daily}` : `${tScore > 0 ? "Keep going" : "Log something"} — match or pass ${yScore}% to clear today`}</div>
+        <div class="quest-status ${beat ? "win" : ""}">${beat ? `Quest cleared! ${reward ? reward.emoji + " " + reward.text : "+₹" + Game.EARN.daily}` : beatY ? `Beat yesterday 👏 — now reach <b>${Game.MIN_PCT}%</b> to bank the reward (at ${tScore}%)` : `${tScore > 0 ? "Keep going" : "Log something"} — match ${yScore}% and clear <b>${Game.MIN_PCT}%</b> to win`}</div>
       </div>
 
       <div class="card span-2">
         <h3>💰 Reward Wallet <span class="muted small">balance you've banked</span></h3>
         <div class="wallet-bal">₹${bal}</div>
-        <p class="sub">Tap a treat to redeem it — it'll deduct and get logged below. ${pun.coffeeLocked ? `<b style="color:var(--orange)">☕ Coffee locked today</b>` : ""}</p>
+        <p class="sub">Only days that reach <b>${Game.MIN_PCT}%</b> bank rewards. Tap a treat to redeem (logged below). ${pun.redeemLocked ? `<b style="color:var(--red)">🔒 Redemptions frozen — log a ${Game.MIN_PCT}%+ day to thaw</b>` : pun.coffeeLocked ? `<b style="color:var(--orange)">☕ Coffee locked today</b>` : ""}</p>
         <div class="reward-grid">
           ${Game.REWARDS.map((rw) => {
             const can = Game.canClaim(rw);

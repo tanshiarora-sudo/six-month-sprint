@@ -14,11 +14,17 @@
     penalty2bad: 100,    // two bad days in a row
   };
   const BAD = 40;        // below this % = a "bad day"
+  const MIN_PCT = 50;    // floor: a day must reach 50% to bank ANY reward
   const REWARDS = [
     { id: "coffee", name: "Fancy Coffee", emoji: "☕", cost: 150 },
     { id: "treat", name: "Sweet Treat", emoji: "🍰", cost: 200 },
-    { id: "shopping", name: "Shopping spree", emoji: "🛍️", cost: 300 },
+    { id: "episode", name: "Guilt-free episode", emoji: "📺", cost: 200 },
+    { id: "sleepin", name: "Sleep-in morning", emoji: "😴", cost: 250 },
+    { id: "movie", name: "Movie / outing", emoji: "🍿", cost: 300 },
+    { id: "shopping", name: "Shopping spree", emoji: "🛍️", cost: 400 },
+    { id: "book", name: "New book", emoji: "📚", cost: 450 },
     { id: "restaurant", name: "Restaurant meal", emoji: "🍽️", cost: 700 },
+    { id: "spa", name: "Spa / self-care day", emoji: "💆", cost: 1000 },
   ];
   const WEEKLY_TARGETS = { diet: 5, study: 6, gym: 4, wake: 6 };
 
@@ -40,8 +46,14 @@
     return wsum ? Math.round(sum / wsum) : 0;
   }
 
-  // Daily quest: match OR beat yesterday, and actually do something today.
+  // Daily quest: match OR beat yesterday — AND clear the 50% floor (no reward below that).
   function goodDay(key) {
+    if (!hasData(key)) return false;
+    const t = questScore(key), y = questScore(prevKey(key));
+    return t >= MIN_PCT && t >= y;
+  }
+  // Did you at least beat yesterday, even if below the 50% reward floor?
+  function beatYesterday(key) {
     if (!hasData(key)) return false;
     const t = questScore(key), y = questScore(prevKey(key));
     return t > 0 && t >= y;
@@ -140,17 +152,19 @@
   // Itemised "where the balance came from", computed deterministically from history.
   function earnBreakdown() {
     const b = { daily: 0, dailyDays: 0, bonus: 0, chest: 0, combo: 0, comboCount: 0, streak: 0, weekly: 0, penalty: 0 };
-    let consecBad = 0;
+    let consecBad = 0; const tk = fmtKey(today());
     for (const k of allDayKeys()) {
-      if (!hasData(k)) { consecBad = 0; continue; }
       const sc = questScore(k);
-      if (goodDay(k)) { b.daily += EARN.daily; b.dailyDays++; }
-      if (sc >= 80) b.bonus += EARN.bonus80;
-      if (sc >= 100) b.chest += EARN.chest;
-      const cc = combosFor(k).length; b.combo += cc * EARN.combo; b.comboCount += cc;
-      const st = streakEndingAt(k);
-      if (EARN.streak[st]) b.streak += EARN.streak[st];
-      if (sc < BAD) { consecBad++; if (consecBad === 2) b.penalty += EARN.penalty2bad; } else consecBad = 0;
+      if (hasData(k) && sc >= MIN_PCT) {            // 50% floor — only quality days bank rewards
+        if (goodDay(k)) { b.daily += EARN.daily; b.dailyDays++; }
+        if (sc >= 80) b.bonus += EARN.bonus80;
+        if (sc >= 100) b.chest += EARN.chest;
+        const cc = combosFor(k).length; b.combo += cc * EARN.combo; b.comboCount += cc;
+        const st = streakEndingAt(k);
+        if (EARN.streak[st]) b.streak += EARN.streak[st];
+      }
+      // default too long → wallet drains harder each consecutive default day (today excluded; it's in progress)
+      if (k !== tk) { if (sc < BAD) { consecBad++; if (consecBad >= 2) b.penalty += 50 * consecBad; } else consecBad = 0; }
     }
     const weeks = [...new Set(allDayKeys().map((k) => fmtKey(monday(parseKey(k)))))];
     for (const wk of weeks) {
@@ -173,24 +187,28 @@
     if (goodDay(key)) return { emoji: "☕", text: "Fancy Coffee unlocked — you beat yesterday!" };
     return null;
   }
-  function badRun(key) { // consecutive bad days ending at key
+  function badRun(key) { // consecutive default days (empty OR <40%) ending at key
     let n = 0, k = key;
-    while (hasData(k) && questScore(k) < BAD) { n++; k = prevKey(k); if (k < PLAN_START) break; }
+    while (k >= PLAN_START && questScore(k) < BAD) { n++; k = prevKey(k); }
     return n;
   }
   function punishment() {
     const tk = fmtKey(today());
     const yk = prevKey(tk);
-    const out = { coffeeLocked: false, recovery: false, lostWallet: 0, note: "" };
+    const out = { coffeeLocked: false, recovery: false, redeemLocked: false, lostWallet: 0, note: "" };
     if (hasData(yk) && questScore(yk) < BAD) { out.coffeeLocked = true; out.note = "Yesterday dipped below 40% — no coffee claim today."; }
-    const run = Math.max(badRun(tk), badRun(yk));
-    if (run >= 2) out.lostWallet = EARN.penalty2bad;
-    if (run >= 3) { out.recovery = true; out.note = "3 low days — this weekend is a Recovery + Catch-up Quest."; }
+    const run = badRun(yk);   // completed days only; today is still in progress
+    const todayOk = hasData(tk) && questScore(tk) >= MIN_PCT;   // a 50%+ today thaws the freeze
+    if (run >= 2) out.lostWallet = 50 * (run * (run + 1) / 2 - 1);   // cumulative drain, grows each bad day
+    if (run >= 3 && !todayOk) { out.recovery = true; out.redeemLocked = true; out.note = `${run} low days in a row — redemptions are FROZEN and the wallet drained (−₹${out.lostWallet}). Log a 50%+ day to thaw them.`; }
+    else if (run >= 3 && todayOk) { out.note = `Back on track — you cleared 50% today, redemptions thawed. (Defaulting cost you ₹${out.lostWallet}.)`; }
     return out;
   }
   function coffeeLocked() { return punishment().coffeeLocked; }
+  function redeemLocked() { return punishment().redeemLocked; }
 
   function canClaim(item) {
+    if (redeemLocked()) return false;                 // default too long → offers frozen
     if (balance() < item.cost) return false;
     if (item.id === "coffee" && coffeeLocked()) return false;
     return true;
@@ -200,9 +218,9 @@
   function level() { const e = earnedTotal(); return Math.max(1, Math.floor(e / 1000) + 1); }
 
   window.Game = {
-    EARN, REWARDS, BAD, WEEKLY_TARGETS, LADDERS, SKIP_RULES,
-    questScore, goodDay, currentStreak, streakEndingAt, combosFor,
+    EARN, REWARDS, BAD, MIN_PCT, WEEKLY_TARGETS, LADDERS, SKIP_RULES,
+    questScore, goodDay, beatYesterday, currentStreak, streakEndingAt, combosFor,
     skipState, weeklyProgress, earnedTotal, spentTotal, balance,
-    dailyReward, punishment, coffeeLocked, canClaim, level, qaQuestionsToday, earnBreakdown,
+    dailyReward, punishment, coffeeLocked, redeemLocked, canClaim, level, qaQuestionsToday, earnBreakdown,
   };
 })();
