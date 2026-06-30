@@ -647,6 +647,7 @@
   // ----------------------------------------------------------------- GAME ---
   function renderGame() {
     const cap = (s) => s[0].toUpperCase() + s.slice(1);
+    const rewardEmoji = (id) => (Game.REWARDS.find((r) => r.id === id) || {}).emoji || "🎟️";
     const k = fmtKey(today());
     const yk = fmtKey(addDays(today(), -1));
     const tScore = Game.questScore(k), yScore = Game.questScore(yk);
@@ -658,6 +659,8 @@
     const pun = Game.punishment();
     const wp = Game.weeklyProgress(today());
     const sk = Game.skipState(k);
+    const bd = Game.earnBreakdown();
+    const claims = (((S.game && S.game.claims) || []).slice().reverse());
 
     return `
     ${pun.recovery ? `<div class="card span-3 tint-pink"><h3>🩹 Recovery Quest</h3><p class="sub">${pun.note}</p></div>` : ""}
@@ -676,13 +679,30 @@
       <div class="card span-2">
         <h3>💰 Reward Wallet <span class="muted small">balance you've banked</span></h3>
         <div class="wallet-bal">₹${bal}</div>
-        <p class="sub">Win days to bank more, then unlock a treat. ${pun.coffeeLocked ? `<b style="color:var(--orange)">☕ Coffee locked today</b>` : ""}</p>
+        <p class="sub">Tap a treat to redeem it — it'll deduct and get logged below. ${pun.coffeeLocked ? `<b style="color:var(--orange)">☕ Coffee locked today</b>` : ""}</p>
         <div class="reward-grid">
           ${Game.REWARDS.map((rw) => {
             const can = Game.canClaim(rw);
-            return `<button class="reward ${can ? "" : "locked"}" ${can ? `data-act="claim:${rw.id}"` : "disabled"} title="${can ? "tap to unlock" : "not enough / locked"}">
+            return `<button class="reward ${can ? "" : "locked"}" ${can ? `data-act="claim:${rw.id}"` : "disabled"} title="${can ? "tap to redeem" : "not enough / locked"}">
               <span class="r-emoji">${rw.emoji}</span><span class="r-name">${rw.name}</span><span class="r-cost">₹${rw.cost}</span></button>`;
           }).join("")}
+        </div>
+        <details class="wallet-info"><summary>Where did ₹${bd.total} come from?</summary>
+          <div class="ledger">
+            ${bd.daily ? `<div class="led-row"><span>🎯 Beat/match yesterday × ${bd.dailyDays}</span><b>+₹${bd.daily}</b></div>` : ""}
+            ${bd.bonus ? `<div class="led-row"><span>⭐ 80%+ days</span><b>+₹${bd.bonus}</b></div>` : ""}
+            ${bd.chest ? `<div class="led-row"><span>🎁 100% days</span><b>+₹${bd.chest}</b></div>` : ""}
+            ${bd.combo ? `<div class="led-row"><span>⚡ Combos × ${bd.comboCount}</span><b>+₹${bd.combo}</b></div>` : ""}
+            ${bd.streak ? `<div class="led-row"><span>🔥 Streak milestones</span><b>+₹${bd.streak}</b></div>` : ""}
+            ${bd.weekly ? `<div class="led-row"><span>🗓️ Weekly quests</span><b>+₹${bd.weekly}</b></div>` : ""}
+            ${bd.penalty ? `<div class="led-row neg"><span>😬 Bad-day penalties</span><b>−₹${bd.penalty}</b></div>` : ""}
+            <div class="led-row"><span>💸 Redeemed</span><b>−₹${Game.spentTotal()}</b></div>
+            <div class="led-row total"><span>Balance</span><b>₹${bal}</b></div>
+          </div>
+        </details>
+        <div class="redeemed">
+          <div class="red-head">🎟️ Redeemed offers ${claims.length ? `<span class="muted small">${claims.length}</span>` : ""}</div>
+          ${claims.length ? claims.map((c, ri) => `<div class="red-row"><span>${rewardEmoji(c.id)} ${esc(c.name)} <span class="muted small">${fmtShort(parseKey(c.date))}</span></span><span class="red-right">−₹${c.cost} <button class="iconbtn" data-act="unclaim:${claims.length - 1 - ri}" title="undo">✕</button></span></div>`).join("") : `<p class="sub" style="margin:6px 0 0">Nothing redeemed yet — your unlocked treats will show here.</p>`}
         </div>
       </div>
 
@@ -1174,6 +1194,14 @@
         S.game.claims = S.game.claims || [];
         S.game.claims.push({ date: fmtKey(today()), id: rw.id, name: rw.name, cost: rw.cost });
         saveState(); render(); celebrate(); toast(`${rw.emoji} ${rw.name} unlocked — enjoy!`);
+        break;
+      }
+      case "unclaim": {
+        const idx = Number(arg);
+        if (S.game && S.game.claims && S.game.claims[idx]) {
+          const removed = S.game.claims.splice(idx, 1)[0];
+          saveState(); render(); toast(`Refunded ₹${removed.cost} — ${removed.name} un-redeemed`);
+        }
         break;
       }
       case "mock":

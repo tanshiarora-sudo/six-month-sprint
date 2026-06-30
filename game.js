@@ -137,27 +137,30 @@
     while (k <= end && guard++ < 800) { out.push(k); k = fmtKey(addDays(parseKey(k), 1)); }
     return out;
   }
-  function earnedTotal() {
-    let total = 0, consecBad = 0;
+  // Itemised "where the balance came from", computed deterministically from history.
+  function earnBreakdown() {
+    const b = { daily: 0, dailyDays: 0, bonus: 0, chest: 0, combo: 0, comboCount: 0, streak: 0, weekly: 0, penalty: 0 };
+    let consecBad = 0;
     for (const k of allDayKeys()) {
       if (!hasData(k)) { consecBad = 0; continue; }
       const sc = questScore(k);
-      if (goodDay(k)) total += EARN.daily;
-      if (sc >= 80) total += EARN.bonus80;
-      if (sc >= 100) total += EARN.chest;
-      total += combosFor(k).length * EARN.combo;
+      if (goodDay(k)) { b.daily += EARN.daily; b.dailyDays++; }
+      if (sc >= 80) b.bonus += EARN.bonus80;
+      if (sc >= 100) b.chest += EARN.chest;
+      const cc = combosFor(k).length; b.combo += cc * EARN.combo; b.comboCount += cc;
       const st = streakEndingAt(k);
-      if (EARN.streak[st]) total += EARN.streak[st];
-      if (sc < BAD) { consecBad++; if (consecBad === 2) total -= EARN.penalty2bad; } else consecBad = 0;
+      if (EARN.streak[st]) b.streak += EARN.streak[st];
+      if (sc < BAD) { consecBad++; if (consecBad === 2) b.penalty += EARN.penalty2bad; } else consecBad = 0;
     }
-    // weekly rewards: credit each week (from start) whose target is met
     const weeks = [...new Set(allDayKeys().map((k) => fmtKey(monday(parseKey(k)))))];
     for (const wk of weeks) {
       const wp = weeklyProgress(parseKey(wk));
-      for (const key in wp) if (wp[key].have >= wp[key].need) total += wp[key].reward;
+      for (const key in wp) if (wp[key].have >= wp[key].need) b.weekly += wp[key].reward;
     }
-    return total;
+    b.total = b.daily + b.bonus + b.chest + b.combo + b.streak + b.weekly - b.penalty;
+    return b;
   }
+  function earnedTotal() { return earnBreakdown().total; }
   function spentTotal() { return ((S().game && S().game.claims) || []).reduce((a, c) => a + (c.cost || 0), 0); }
   function balance() { return Math.max(0, earnedTotal() - spentTotal()); }
 
@@ -200,6 +203,6 @@
     EARN, REWARDS, BAD, WEEKLY_TARGETS, LADDERS, SKIP_RULES,
     questScore, goodDay, currentStreak, streakEndingAt, combosFor,
     skipState, weeklyProgress, earnedTotal, spentTotal, balance,
-    dailyReward, punishment, coffeeLocked, canClaim, level, qaQuestionsToday,
+    dailyReward, punishment, coffeeLocked, canClaim, level, qaQuestionsToday, earnBreakdown,
   };
 })();
