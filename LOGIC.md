@@ -165,8 +165,7 @@ A play layer on top of the same scores — nothing about the categories above ch
 
 ### Fun Fund (one credit currency)
 - A single credit **balance = total earned − total spent**. **Credits only count from the day Game Mode starts** (not retroactively from your whole history), so there's never a phantom balance.
-- **It can go negative** ("in the red — earn it back"); spending is never blocked.
-- **"Available now"** shows what your balance can afford (e.g. ☕×6).
+- **You can only spend what you've banked** — no negative balance.
 - **↺ Start fresh** (in the card) re-zeroes the balance and banks forward from today; your logged data is untouched.
 - **Level** rises with lifetime credits earned (~every ₹1,000 = +1).
 
@@ -181,9 +180,9 @@ A play layer on top of the same scores — nothing about the categories above ch
 | Weekly quest hit (diet/study/gym/wake) | +200 / +300 / +250 / +150 |
 | Monthly tier (Bronze/Silver/Gold/Diamond) | +300 / +600 / +1200 / +2000 |
 
-### Spending
-- **Quick treats** (fixed price): ☕ Coffee ₹100 · 🍰 Sweet Treat ₹150 · 🥟 Momos ₹250 · 🍔 Meal ₹500.
-- **Spend an exact amount** (free-form): type the real ₹ of any treat + what for (Shopping/Salon/Trip/Other). Debits that exact amount.
+### Spending (you set the amount)
+- **No fixed prices.** Tap a chip (☕ Coffee · 🍰 Sweet Treat · 🥟 Momos · 🍔 Meal · 🛍️ Shopping · 💇 Salon · ✈️ Trip · ✨ Other) to fill the label, then **type the real ₹ you actually spent** and hit Spend.
+- **Earn then spend:** you can only spend what you've banked — no overspending or going negative.
 - Everything is logged with date + amount (undo ✕ refunds). The **Statement** is a dated bank statement of every earning **and** spend.
 
 ### 🐰 Bun the coach
@@ -193,7 +192,7 @@ Shows the **shortest path** to securing today's win (e.g. "25 more points → to
 After **8 PM**, if you're close to a win (within ~18 points), Bun offers one quick action (reading / 10k steps / wake-up / vitamins) to save the day.
 
 ### 🍀 Daily Buff
-A different bonus each day (deterministic): **Coffee costs half** · **Reading pays +₹100** · **Combos pay double** · **+₹50 if you win**.
+A different bonus each day (deterministic): **Reading pays +₹100** · **Combos pay double** · **+₹50 if you win** · **Gym/steps pays +₹75**.
 
 ### Streaks & Combos
 - Streak = consecutive winning days; milestones at 3/5/10/20 pay out.
