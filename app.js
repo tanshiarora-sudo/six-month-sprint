@@ -768,43 +768,6 @@
     </div>`;
   }
 
-  // ------------------------------------------------------------- IDENTITY ---
-  function renderIdentity() {
-    const li = Game.levelInfo();
-    const ach = Game.achievements();
-    const unlocked = ach.filter((a) => a.unlocked), locked = ach.filter((a) => !a.unlocked);
-    const xpT = Game.xpToday();
-    const recent = ((S.game && S.game.xpLog) || []).slice(-10).reverse();
-    return `
-    <div class="grid cols-3">
-      <div class="card span-3 tint-indigo">
-        <h3>✨ Identity <span class="muted small">who you're becoming · never required, pure bonus</span></h3>
-        <div class="lvl-row">
-          <div class="lvl-badge ${li.level >= 5 ? "ring" : ""}">Lv ${li.level}</div>
-          <div class="lvl-bar"><div class="lvl-fill" style="width:${(li.into / li.need) * 100}%"></div></div>
-          <div class="lvl-meta muted small">${li.into}/${li.need} to next · ${li.xp} XP total${xpT ? ` · <b style="color:#2f8f57">+${xpT} today</b>` : ""}</div>
-        </div>
-        <div class="cosmetics">${Game.cosmetics().map((c) => `<span class="cosm ${c.unlocked ? "on" : ""}" title="${c.unlocked ? "unlocked" : "unlocks at Lv " + c.lvl}">${c.unlocked ? c.emoji : "🔒"} ${c.name}${c.unlocked ? "" : ` · Lv${c.lvl}`}</span>`).join("")}</div>
-      </div>
-      ${Game.XP_ITEMS.map((g) => `<div class="card">
-        <h3>${g.cat}</h3>
-        ${g.items.map((it) => { const c = Game.xpCount(it.id), td = Game.xpCountToday(it.id); return `<div class="xp-row">
-          <button class="xp-btn" data-act="xp:${it.id}">${esc(it.name)}</button>
-          <span class="xp-val">+${it.xp}${c ? ` <span class="muted small">·${c}×</span>` : ""}${td ? ` <button class="xp-undo" data-act="xpundolast:${it.id}" title="undo today's">✕</button>` : ""}</span></div>`; }).join("")}
-      </div>`).join("")}
-      <div class="card span-3">
-        <h3>🏆 Achievements <span class="muted small">${unlocked.length}/${ach.length} unlocked</span></h3>
-        <div class="ach-grid">
-          ${unlocked.map((a) => `<div class="ach unlocked"><span class="ach-ic">${a.icon}</span><span class="ach-nm">${a.name}</span><span class="ach-ds muted small">${a.desc}</span></div>`).join("")}
-          ${locked.map(() => `<div class="ach locked"><span class="ach-ic">🔒</span><span class="ach-nm">???</span><span class="ach-ds muted small">hidden</span></div>`).join("")}
-        </div>
-      </div>
-      ${recent.length ? `<div class="card span-3"><h3>Recent XP</h3>
-        ${recent.map((e, i) => `<div class="red-row"><span>✨ +${e.xp} XP · ${esc(e.label)} <span class="muted small">${fmtShort(parseKey(e.date))}</span></span><button class="iconbtn" data-act="xpundo:${(S.game.xpLog.length - 1) - i}" title="undo">✕</button></div>`).join("")}
-      </div>` : ""}
-    </div>`;
-  }
-
   // ------------------------------------------------------------ DASHBOARD ---
   function renderDashboard() {
     const base = new Date(today().getFullYear(), today().getMonth() - UI.monthOffset, 1);
@@ -1049,7 +1012,6 @@
     view.innerHTML = UI.tab === "today" ? renderToday()
       : UI.tab === "study" ? renderStudy()
       : UI.tab === "game" ? renderGame()
-      : UI.tab === "identity" ? renderIdentity()
       : UI.tab === "dashboard" ? renderDashboard()
       : renderReports();
     if (UI.tab === "today") wireFoodInput();
@@ -1262,34 +1224,8 @@
         saveState(); render(); celebrate(); toast("🍻 NIGHT OUT EARNED — go celebrate, you crushed the month!");
         break;
       }
-      case "xp": {
-        let item = null;
-        for (const g of Game.XP_ITEMS) { const it = g.items.find((x) => x.id === arg); if (it) { item = it; break; } }
-        if (!item) break;
-        S.game = S.game || {}; S.game.xpLog = S.game.xpLog || [];
-        const before = Game.unlockedCount();
-        S.game.xpLog.push({ date: fmtKey(today()), id: item.id, label: item.name, xp: item.xp });
-        saveState(); render(); celebrate();
-        const after = Game.unlockedCount();
-        toast(after > before ? `🏆 Achievement unlocked! +${item.xp} XP` : `✨ +${item.xp} XP — ${item.name}`);
-        break;
-      }
-      case "xpundo": {
-        const idx = Number(arg);
-        if (S.game && S.game.xpLog && S.game.xpLog[idx]) { const rm = S.game.xpLog.splice(idx, 1)[0]; saveState(); render(); toast(`Removed +${rm.xp} XP (${rm.label})`); }
-        break;
-      }
-      case "xpundolast": {
-        const log = (S.game && S.game.xpLog) || [];
-        const tk = fmtKey(today());
-        let idx = -1;
-        for (let n = log.length - 1; n >= 0; n--) { if (log[n].id === arg && log[n].date === tk) { idx = n; break; } }
-        if (idx < 0) for (let n = log.length - 1; n >= 0; n--) { if (log[n].id === arg) { idx = n; break; } }
-        if (idx >= 0) { const rm = log.splice(idx, 1)[0]; saveState(); render(); toast(`Undid +${rm.xp} XP (${rm.label})`); }
-        break;
-      }
       case "gamereset": {
-        if (!confirm("Start the Fun Fund fresh?\n\nThis zeroes your current balance and banks forward from today. Your logged data and Identity XP are not touched.")) break;
+        if (!confirm("Start the Fun Fund fresh?\n\nThis zeroes your current balance and banks forward from today. Your logged data is not touched.")) break;
         S.game = S.game || {};
         S.game.baseline = Game.earnedTotal() - Game.spentTotal();   // capture current net so balance reads 0
         S.game.resetAt = fmtKey(today());

@@ -240,53 +240,14 @@
 
   function dailyReward(key) { if (!hasData(key)) return null; const t = questScore(key), e = dayEarn(key); if (t >= 100) return { emoji: "🎁", text: "Mystery Chest!" }; if (e > 0) return { emoji: "💰", text: `+₹${e} banked today` }; return null; }
 
-  // ===================== Identity XP =====================
-  const XP_ITEMS = [
-    { cat: "💼 Career", items: [ { id: "applyjob", name: "Applied to a Job", xp: 20 }, { id: "resume", name: "Updated Resume", xp: 30 }, { id: "interview", name: "Interview Attended", xp: 75 }, { id: "skill", name: "Learned a New Skill", xp: 40 } ] },
-    { cat: "💪 Health", items: [ { id: "cookhealthy", name: "Cooked a Healthy Meal", xp: 20 }, { id: "water3l", name: "Drank 3L Water", xp: 10 }, { id: "nosugar", name: "No Sugar Today", xp: 20 }, { id: "yoga", name: "Yoga", xp: 20 } ] },
-    { cat: "🏡 Life", items: [ { id: "cleanroom", name: "Cleaned My Room", xp: 20 } ] },
-    { cat: "🤝 Relationships", items: [ { id: "parents", name: "Called Parents", xp: 15 }, { id: "family", name: "Quality Time with Family", xp: 25 }, { id: "friend", name: "Met a Friend", xp: 20 } ] },
-    { cat: "🧠 Adulting", items: [ { id: "budget", name: "Budget Review", xp: 20 }, { id: "appointment", name: "Booked Appointment", xp: 15 }, { id: "errand", name: "Finished an Important Errand", xp: 20 }, { id: "documents", name: "Organised Documents", xp: 20 } ] },
-  ];
-  const XP_PER_LEVEL = 100;
-  function xpLogArr() { return (S().game && S().game.xpLog) || []; }
-  function xpTotal() { return xpLogArr().reduce((a, e) => a + (e.xp || 0), 0); }
-  function xpToday() { const tk = fmtKey(today()); return xpLogArr().filter((e) => e.date === tk).reduce((a, e) => a + (e.xp || 0), 0); }
-  function xpCount(id) { return xpLogArr().filter((e) => e.id === id).length; }
-  function xpCountToday(id) { const tk = fmtKey(today()); return xpLogArr().filter((e) => e.date === tk && e.id === id).length; }
-  function level() { return Math.floor(xpTotal() / XP_PER_LEVEL) + 1; }
-  function levelInfo() { const xp = xpTotal(); return { level: Math.floor(xp / XP_PER_LEVEL) + 1, into: xp % XP_PER_LEVEL, need: XP_PER_LEVEL, toNext: XP_PER_LEVEL - (xp % XP_PER_LEVEL), xp }; }
-  function cosmetics() { const lv = level(); return COSMETICS.map((c) => ({ ...c, unlocked: lv >= c.lvl })); }
-
-  function gymClasses() { return Object.values(S().days || {}).filter((r) => r && r.gymClass).length; }
-  function qaLifetime() { try { return Score().subjectTotalDone("qa"); } catch (e) { return 0; } }
-  function winningDays() { return allDayKeys().filter(goodDay).length; }
-  function maxStreak() { let best = 0, cur = 0; for (const k of allDayKeys()) { if (goodDay(k)) { cur++; best = Math.max(best, cur); } else cur = 0; } return best; }
-  function recoveredOnce() { for (const k of allDayKeys()) if (recoveryActive(k) && goodDay(k)) return true; return false; }
-  const ACH = [
-    { id: "firstjob", icon: "🥚", name: "First Application", desc: "Applied to your first job", t: () => xpCount("applyjob") >= 1 },
-    { id: "resumemaster", icon: "🧠", name: "Resume Master", desc: "5 resume updates", t: () => xpCount("resume") >= 5 },
-    { id: "jobhunter", icon: "🏹", name: "Job Hunter", desc: "10 applications", t: () => xpCount("applyjob") >= 10 },
-    { id: "phoenix", icon: "🐦‍🔥", name: "Phoenix", desc: "Recovered after a slump", t: () => recoveredOnce() },
-    { id: "gym50", icon: "🏋️", name: "Iron Soul", desc: "50 gym classes", t: () => gymClasses() >= 50 },
-    { id: "qa1000", icon: "📚", name: "Quant Beast", desc: "1000 QA questions", t: () => qaLifetime() >= 1000 },
-    { id: "win30", icon: "🔥", name: "Unstoppable", desc: "30 winning days", t: () => winningDays() >= 30 },
-    { id: "streak7", icon: "⚡", name: "Perfect Week", desc: "7-day win streak", t: () => maxStreak() >= 7 },
-    { id: "save10k", icon: "💰", name: "Big Saver", desc: "₹10,000 earned", t: () => earnedTotal() >= 10000 },
-    { id: "catready", icon: "🎯", name: "CAT Ready", desc: "Readiness 80%+", t: () => { try { return Score().readinessScore(today()) >= 80; } catch (e) { return false; } } },
-    { id: "lvl25", icon: "👑", name: "Level 25", desc: "Reach Level 25", t: () => level() >= 25 },
-    { id: "adult", icon: "🧾", name: "Certified Adult", desc: "20 adulting tasks", t: () => ["budget", "appointment", "errand", "documents"].reduce((a, id) => a + xpCount(id), 0) >= 20 },
-    { id: "diamond", icon: "💎", name: "Diamond Month", desc: "95% winning days in a month", t: () => monthTier(today()).tier && monthTier(today()).tier.id === "diamond" },
-  ];
-  function achievements() { return ACH.map((a) => ({ id: a.id, icon: a.icon, name: a.name, desc: a.desc, unlocked: !!a.t() })); }
-  function unlockedCount() { return ACH.reduce((n, a) => n + (a.t() ? 1 : 0), 0); }
+  // level from lifetime credits earned
+  function level() { return Math.max(1, Math.floor(earnedTotal() / 1000) + 1); }
 
   window.Game = {
-    EARN, REWARDS, SPEND_CATS, FLOOR, BAD, RECOVERY_BAR, WEEKLY_TARGETS, LADDERS, SKIP_RULES, XP_ITEMS, MONTH_TIERS, BUFFS,
+    EARN, REWARDS, SPEND_CATS, FLOOR, BAD, RECOVERY_BAR, WEEKLY_TARGETS, LADDERS, SKIP_RULES, MONTH_TIERS, BUFFS,
     questScore, goodDay, recoveryActive, dayEvents, dayEarn, currentStreak, streakEndingAt, combosFor,
     skipState, recommendSkip, weeklyProgress, monthTier, canNightOut, claimedThisMonth,
     earnedTotal, earnLog, spentTotal, balance, canSpend, buyCost, availableNow, dailyBuff,
-    dailyReward, punishment, coachTip, nearMiss, level, levelInfo, cosmetics, qaQuestionsToday,
-    xpTotal, xpToday, xpCount, xpCountToday, achievements, unlockedCount,
+    dailyReward, punishment, coachTip, nearMiss, level, qaQuestionsToday,
   };
 })();
