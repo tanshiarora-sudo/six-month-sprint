@@ -1227,8 +1227,7 @@
       case "gamereset": {
         if (!confirm("Start the Fun Fund fresh?\n\nThis zeroes your current balance and banks forward from today. Your logged data is not touched.")) break;
         S.game = S.game || {};
-        S.game.baseline = Game.earnedTotal() - Game.spentTotal();   // capture current net so balance reads 0
-        S.game.resetAt = fmtKey(today());
+        S.game.start = fmtKey(today());   // count credits only from today
         saveState(); render(); toast("🔄 Fresh start — balance reset to ₹0");
         break;
       }
@@ -1458,7 +1457,8 @@
   })();
 
   S.game = S.game || { claims: [] };   // Game Mode: reward-wallet claims log
-  S.game.claims = S.game.claims || []; S.game.xpLog = S.game.xpLog || [];   // Identity XP log
+  S.game.claims = S.game.claims || [];
+  if (!S.game.start) S.game.start = fmtKey(today());   // credits count only from when Game Mode begins (no retroactive balance)
   // One-time ease: collapse the old June/July QA crunch into a single even 31-Aug pace.
   (function easeQADeadlines() {
     let changed = false;

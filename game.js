@@ -72,7 +72,7 @@
     if (t < FLOOR) return false;
     return (t - questScore(prevKey(key))) >= 5 || t >= 50;
   }
-  function streakEndingAt(key) { let n = 0, k = key; while (k >= PLAN_START && goodDay(k)) { n++; k = prevKey(k); } return n; }
+  function streakEndingAt(key) { let n = 0, k = key; while (k >= gameStart() && goodDay(k)) { n++; k = prevKey(k); } return n; }
   function currentStreak() { let k = fmtKey(today()); if (!hasData(k)) k = prevKey(k); return streakEndingAt(k); }
 
   // ---- combos ----
@@ -121,7 +121,7 @@
 
   // ---- weekly ----
   function weeklyProgress(d) {
-    const keys = weekKeys(d).filter((k) => k >= PLAN_START && k <= fmtKey(today()));
+    const keys = weekKeys(d).filter((k) => k >= gameStart() && k <= fmtKey(today()));
     let diet = 0, study = 0, gym = 0, wake = 0;
     for (const k of keys) { const r = S().days[k]; if (!r) continue;
       if ((Score().dietDay(k).score || 0) >= 80) diet++;
@@ -138,9 +138,9 @@
 
   // ---- monthly tiers ----
   function monthTier(d) {
-    const keys = monthKeys(d).filter((k) => k >= PLAN_START && k <= fmtKey(today()));
+    const keys = monthKeys(d).filter((k) => k >= gameStart() && k <= fmtKey(today()));
     const wins = keys.filter(goodDay).length, avail = Math.max(1, keys.length), frac = wins / avail;
-    let tier = null; for (const t of MONTH_TIERS) if (frac >= t.frac) { tier = t; break; }
+    let tier = null; if (keys.length >= 10) for (const t of MONTH_TIERS) if (frac >= t.frac) { tier = t; break; }   // need a real sample of days, not a 1-day 100%
     const next = [...MONTH_TIERS].reverse().find((t) => frac < t.frac) || null;
     const needNext = next ? Math.max(1, Math.ceil(next.frac * avail) - wins) : 0;
     return { wins, avail, frac, tier, next, needNext, nightOut: !!(tier && (tier.id === "gold" || tier.id === "diamond")) };
@@ -152,7 +152,9 @@
   function dailyBuff(key) { let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) % 100000; return BUFFS[h % BUFFS.length]; }
 
   // ---- earnings ----
-  function allDayKeys() { const out = []; let k = PLAN_START; const end = fmtKey(today()); let g = 0; while (k <= end && g++ < 800) { out.push(k); k = fmtKey(addDays(parseKey(k), 1)); } return out; }
+  // Game credits only count from the day you START playing (S.game.start), not retroactively.
+  function gameStart() { const s = S().game && S().game.start; return s && s > PLAN_START ? s : PLAN_START; }
+  function allDayKeys() { const out = []; let k = gameStart(); const end = fmtKey(today()); let g = 0; while (k <= end && g++ < 800) { out.push(k); k = fmtKey(addDays(parseKey(k), 1)); } return out; }
   function dayEvents(key) {
     if (!hasData(key)) return [];
     const t = questScore(key);
@@ -189,15 +191,14 @@
     for (const wk of weeks) { const wp = weeklyProgress(parseKey(wk)); for (const key in wp) if (wp[key].have >= wp[key].need) ev.push({ date: wk, week: true, icon: "🗓️", label: `Weekly ${WLAB[key]}`, amt: wp[key].reward }); }
     const months = [...new Set(allDayKeys().map((k) => k.slice(0, 7)))];
     for (const ym of months) { const mt = monthTier(parseKey(ym + "-01")); if (mt.tier) ev.push({ date: ym + "-15", month: true, icon: mt.tier.emoji, label: `${mt.tier.name} month (${Math.round(mt.frac * 100)}%)`, amt: mt.tier.bonus }); }
-    for (const c of ((S().game && S().game.claims) || [])) ev.push({ date: c.date, spend: true, icon: c.id === "nightout" ? "🍻" : "💸", label: c.name + " (spent)", amt: -(c.cost || 0) });
-    const base = gameBaseline(); if (base > 0) ev.push({ date: (S().game && S().game.resetAt) || fmtKey(today()), reset: true, icon: "🔄", label: "Fresh start — previous balance cleared", amt: -base });
+    const gs = gameStart();
+    for (const c of ((S().game && S().game.claims) || [])) if ((c.date || "") >= gs) ev.push({ date: c.date, spend: true, icon: c.id === "nightout" ? "🍻" : "💸", label: c.name + " (spent)", amt: -(c.cost || 0) });
     ev.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     return ev;
   }
   function earnedTotal() { let t = 0; for (const k of allDayKeys()) t += dayEarn(k); const weeks = [...new Set(allDayKeys().map((k) => fmtKey(monday(parseKey(k)))))]; for (const wk of weeks) { const wp = weeklyProgress(parseKey(wk)); for (const key in wp) if (wp[key].have >= wp[key].need) t += wp[key].reward; } const months = [...new Set(allDayKeys().map((k) => k.slice(0, 7)))]; for (const ym of months) { const mt = monthTier(parseKey(ym + "-01")); if (mt.tier) t += mt.tier.bonus; } return t; }
-  function spentTotal() { return ((S().game && S().game.claims) || []).reduce((a, c) => a + (c.cost || 0), 0); }
-  function gameBaseline() { return (S().game && S().game.baseline) || 0; }   // "start fresh" clears the running balance
-  function balance() { return earnedTotal() - spentTotal() - gameBaseline(); }
+  function spentTotal() { const gs = gameStart(); return ((S().game && S().game.claims) || []).reduce((a, c) => a + ((c.date || "") >= gs ? (c.cost || 0) : 0), 0); }
+  function balance() { return earnedTotal() - spentTotal(); }   // both scoped to the game start
   function canSpend() { return true; }   // recovery mode replaced the freeze — spending is always open
   function buyCost(item) { return (item.id === "coffee" && dailyBuff(fmtKey(today())).id === "coffee_half") ? Math.round(item.cost / 2) : item.cost; }
   function availableNow() { const b = balance(); return REWARDS.map((r) => ({ ...r, n: b > 0 ? Math.floor(b / buyCost(r)) : 0 })); }
