@@ -563,3 +563,7 @@ ul.cleanlist { margin: 6px 0; padding-left: 20px; }
 .cosm { font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
 .cosm.on { color: var(--ink); border-color: var(--yellow); background: #fff7e6; }
 .lvl-badge.ring { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--yellow); }
+
+/* inline per-item XP undo */
+.xp-undo { color: var(--muted); padding: 0 4px; font-size: 12px; }
+.xp-undo:hover { color: var(--red); }

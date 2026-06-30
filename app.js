@@ -788,9 +788,9 @@
       </div>
       ${Game.XP_ITEMS.map((g) => `<div class="card">
         <h3>${g.cat}</h3>
-        ${g.items.map((it) => { const c = Game.xpCount(it.id); return `<div class="xp-row">
+        ${g.items.map((it) => { const c = Game.xpCount(it.id), td = Game.xpCountToday(it.id); return `<div class="xp-row">
           <button class="xp-btn" data-act="xp:${it.id}">${esc(it.name)}</button>
-          <span class="xp-val">+${it.xp}${c ? ` <span class="muted small">·${c}×</span>` : ""}</span></div>`; }).join("")}
+          <span class="xp-val">+${it.xp}${c ? ` <span class="muted small">·${c}×</span>` : ""}${td ? ` <button class="xp-undo" data-act="xpundolast:${it.id}" title="undo today's">✕</button>` : ""}</span></div>`; }).join("")}
       </div>`).join("")}
       <div class="card span-3">
         <h3>🏆 Achievements <span class="muted small">${unlocked.length}/${ach.length} unlocked</span></h3>
@@ -1277,6 +1277,15 @@
       case "xpundo": {
         const idx = Number(arg);
         if (S.game && S.game.xpLog && S.game.xpLog[idx]) { const rm = S.game.xpLog.splice(idx, 1)[0]; saveState(); render(); toast(`Removed +${rm.xp} XP (${rm.label})`); }
+        break;
+      }
+      case "xpundolast": {
+        const log = (S.game && S.game.xpLog) || [];
+        const tk = fmtKey(today());
+        let idx = -1;
+        for (let n = log.length - 1; n >= 0; n--) { if (log[n].id === arg && log[n].date === tk) { idx = n; break; } }
+        if (idx < 0) for (let n = log.length - 1; n >= 0; n--) { if (log[n].id === arg) { idx = n; break; } }
+        if (idx >= 0) { const rm = log.splice(idx, 1)[0]; saveState(); render(); toast(`Undid +${rm.xp} XP (${rm.label})`); }
         break;
       }
       case "buy": {
