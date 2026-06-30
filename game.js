@@ -25,10 +25,11 @@
     { id: "sleepin", name: "Sleep in extra", emoji: "😴" },
   ];
   // Money rewards — spend your banked balance. Ranked: Spa highest → Shopping → Restaurant.
+  // Entry (Restaurant) kept reachable so a small balance is never stuck in a dead zone.
   const REWARDS = [
-    { id: "spa", name: "Spa / mani-pedi / blowout", emoji: "💆", cost: 2000 },
-    { id: "shopping", name: "Shopping", emoji: "🛍️", cost: 1200 },
-    { id: "restaurant", name: "Restaurant meal", emoji: "🍽️", cost: 600 },
+    { id: "spa", name: "Spa / mani-pedi / blowout", emoji: "💆", cost: 1800 },
+    { id: "shopping", name: "Shopping", emoji: "🛍️", cost: 900 },
+    { id: "restaurant", name: "Restaurant meal", emoji: "🍽️", cost: 400 },
   ];
   const WEEKLY_TARGETS = { diet: 5, study: 6, gym: 4, wake: 6 };
 
