@@ -447,6 +447,31 @@
       </div>`;
     })()}
 
+    ${(() => {
+      // Weekend Study Backlog — only on Sat/Sun. Whole-week target (daily aim × 7) minus done this week.
+      const dow = parseKey(UI.dateKey).getDay();
+      if (dow !== 0 && dow !== 6) return "";
+      const AIM = { qa: 25, lr: 8, di: 4, varc: 2, vocab: 1 };  // per day
+      const wk = weekKeys(parseKey(UI.dateKey)).filter((x) => x >= PLAN_START && x <= UI.dateKey);
+      const sumTrack = (pred) => wk.reduce((a, x) => { const qa = (S.days[x] || {}).qa || {}; return a + S.chapters.filter(pred).reduce((b, c) => b + (qa[c.id] || 0), 0); }, 0);
+      const tracks = [
+        { name: "QA", unit: "Qs", done: sumTrack((c) => (c.subject || "qa") === "qa"), target: AIM.qa * 7, color: "var(--indigo)" },
+        { name: "LR", unit: "Qs", done: sumTrack((c) => c.subject === "dilr" && !/^DI:/.test(c.name)), target: AIM.lr * 7, color: "var(--orange)" },
+        { name: "DI", unit: "Qs", done: sumTrack((c) => c.subject === "dilr" && /^DI:/.test(c.name)), target: AIM.di * 7, color: "#c98a2b" },
+        { name: "VARC", unit: "exercises", done: sumTrack((c) => c.subject === "varc"), target: AIM.varc * 7, color: "var(--pink)" },
+        { name: "Vocab", unit: "sessions", done: sumTrack((c) => c.subject === "vocab"), target: AIM.vocab * 7, color: "var(--teal)" },
+      ];
+      const totRem = tracks.reduce((a, t) => a + Math.max(0, t.target - t.done), 0);
+      return `<div class="card span-3 tint-orange">
+        <h3>📚 Weekend Study Backlog <span class="muted small">${totRem === 0 ? "all clear — nice! 🎉" : totRem + " to clear this week"}</span></h3>
+        <p class="sub">This week's target is each subject's daily aim × 7. Whatever's left is here — log it on the tiles above.</p>
+        ${tracks.map((t) => { const rem = Math.max(0, t.target - t.done); const pct = t.target ? Math.min(100, Math.round((t.done / t.target) * 100)) : 0; return `
+          <div class="bl-row"><span class="bl-name"><span class="dot" style="background:${t.color}"></span> ${t.name}</span>
+            <span class="bl-stat">${t.done}/${t.target} ${t.unit} · <b>${pct}% done</b> · ${rem === 0 ? `<span class="bl-ok">done ✓</span>` : `<b>${rem} left</b>`}</span></div>
+          ${C.bar(pct, pct >= 100 ? "var(--green)" : t.color)}`; }).join("")}
+      </div>`;
+    })()}
+
     <div class="grid cols-3 mt16">
       <div class="card tint-teal">
         <h3><span class="dot" style="background:var(--teal)"></span> Wake Up</h3>

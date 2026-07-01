@@ -567,3 +567,10 @@ ul.cleanlist { margin: 6px 0; padding-left: 20px; }
 /* inline per-item XP undo */
 .xp-undo { color: var(--muted); padding: 0 4px; font-size: 12px; }
 .xp-undo:hover { color: var(--red); }
+
+/* Weekend study backlog */
+.bl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; font-size: 13px; font-weight: 700; flex-wrap: wrap; }
+.bl-name { display: flex; align-items: center; gap: 7px; }
+.bl-stat { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bl-stat b { color: var(--ink); }
+.bl-ok { color: #2f8f57; font-weight: 800; }
