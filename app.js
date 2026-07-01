@@ -528,43 +528,6 @@
       </div>`;
     })()}
 
-    ${(() => {
-      // Weekend Study Backlog — only on Sat/Sun. Whole-week target (daily aim × 7) minus done this week,
-      // with each subject's remaining split (bifurcated) across the chapters/topics it comes from.
-      const dow = parseKey(UI.dateKey).getDay();
-      if (dow !== 0 && dow !== 6) return "";
-      const wk = weekKeys(parseKey(UI.dateKey)).filter((x) => x >= PLAN_START && x <= UI.dateKey);
-      const sumChs = (chs) => wk.reduce((a, x) => { const qa = (S.days[x] || {}).qa || {}; return a + chs.reduce((b, c) => b + (qa[c.id] || 0), 0); }, 0);
-      // spread `backlog` across chapters evenly (round-robin), capped at each chapter's remaining
-      const spread = (chs, backlog) => {
-        const items = chs.map((c) => ({ name: c.name.replace(/^DI:\s*/, ""), rem: Score.chapterStats(c).remaining, n: 0 })).filter((it) => it.rem > 0);
-        let need = backlog, g = 0;
-        while (need > 0 && items.some((it) => it.n < it.rem) && g++ < 6000) { for (const it of items) { if (need <= 0) break; if (it.n < it.rem) { it.n++; need--; } } }
-        return items.filter((it) => it.n > 0).sort((a, b) => b.n - a.n);
-      };
-      const tracks = [
-        { name: "QA", unit: "Qs", color: "#7c8cf8", chs: S.chapters.filter((c) => (c.subject || "qa") === "qa"), weekly: WEEKLY_AIM.qa },
-        { name: "LR", unit: "Qs", color: "#f5a86b", chs: S.chapters.filter((c) => c.subject === "dilr" && !/^DI:/.test(c.name)), weekly: WEEKLY_AIM.lr },
-        { name: "DI", unit: "Qs", color: "#c98a2b", chs: S.chapters.filter((c) => c.subject === "dilr" && /^DI:/.test(c.name)), weekly: WEEKLY_AIM.di },
-        { name: "VARC", unit: "exercises", color: "#f48fb1", chs: S.chapters.filter((c) => c.subject === "varc"), weekly: WEEKLY_AIM.varc },
-        { name: "Vocab", unit: "sessions", color: "#4fc3b2", chs: S.chapters.filter((c) => c.subject === "vocab"), weekly: WEEKLY_AIM.vocab },
-      ].map((t) => { const done = sumChs(t.chs), target = t.weekly, rem = Math.max(0, target - done); return { ...t, done, target, rem, pct: target ? Math.min(100, Math.round((done / target) * 100)) : 0, segs: spread(t.chs, rem) }; });
-      const totRem = tracks.reduce((a, t) => a + t.rem, 0);
-      const bar = (t) => // single-colour progress bar: filled = done, in the subject's own colour
-        `<div class="dist-bar"><span class="seg" style="width:${t.pct}%;background:${t.color}"></span></div>`;
-      return `<div class="card span-3 tint-orange">
-        <h3>📚 Weekend Study Backlog <span class="muted small">${totRem === 0 ? "all clear — nice! 🎉" : totRem + " to clear this week"}</span></h3>
-        <p class="sub">Study runs Mon–Fri; this is whatever's still left for the week. Below each bar is the remaining split across the chapters it's from — log on the tiles above.</p>
-        ${tracks.map((t) => `
-          <div class="bl-block">
-            <div class="bl-row"><span class="bl-name">${t.name}</span>
-              <span class="bl-stat">${t.done}/${t.target} ${t.unit} · <b>${t.pct}% done</b> · ${t.rem === 0 ? `<span class="bl-ok">done ✓</span>` : `<b>${t.rem} left</b>`}</span></div>
-            ${bar(t)}
-            ${t.segs.length ? `<div class="dist-legend">${t.segs.slice(0, 10).map((s) => `<span class="dl"><i style="background:${t.color}"></i>${esc(s.name)} <b>${s.n}</b></span>`).join("")}${t.segs.length > 10 ? `<span class="dl muted">+${t.segs.length - 10} more</span>` : ""}</div>` : `<div class="dist-legend muted small">All clear this week ✓</div>`}
-          </div>`).join("")}
-      </div>`;
-    })()}
-
     <div class="grid cols-3 mt16">
       <div class="card tint-teal">
         <h3><span class="dot" style="background:var(--teal)"></span> Wake Up</h3>
