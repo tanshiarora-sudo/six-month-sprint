@@ -784,7 +784,7 @@
       <div class="card span-2">
         <h3>💰 Fun Fund <span class="muted small">one balance for everything</span> <button class="iconbtn" data-act="gamereset" title="zero the balance and bank fresh from today" style="margin-left:auto">↺ Start fresh</button></h3>
         <div class="wallet-bal ${bal < 0 ? "neg" : ""}">${rs(bal)}</div>
-        <p class="sub">Bank credits by winning days, then spend what you've got on whatever you like — you set the amount.</p>
+        <p class="sub">Bank credits by winning days and spend on whatever you like — you set the amount. You can run a tab (go negative) and pay it off with future wins.</p>
         <div class="reward-subhead">💸 Spend (you set the amount)</div>
         <div class="spend-row ${Game.canSpend() ? "" : "locked"}">
           <span class="spend-rs">₹</span>
@@ -1312,11 +1312,12 @@
         const amtEl = document.getElementById("spendAmt"), whatEl = document.getElementById("spendWhat");
         const amt = Math.round(parseFloat(amtEl && amtEl.value) || 0);
         if (amt <= 0) { toast("Enter the amount you spent"); break; }
-        if (amt > Game.balance()) { toast(`Not enough — earn ₹${amt - Game.balance()} more first`); break; }
         const what = ((whatEl && whatEl.value) || "").trim() || "Spend";
         S.game = S.game || { claims: [] }; S.game.claims = S.game.claims || [];
         S.game.claims.push({ date: fmtKey(today()), id: "spend", name: what, cost: amt });
-        saveState(); render(); toast(`Spent ₹${amt} on ${what}`);
+        saveState(); render();
+        const nb = Game.balance();
+        toast(nb < 0 ? `Spent ₹${amt} on ${what} · balance −₹${Math.abs(nb)} (pay it off later)` : `Spent ₹${amt} on ${what}`);
         break;
       }
       case "unclaim": {
