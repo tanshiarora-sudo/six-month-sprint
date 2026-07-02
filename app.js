@@ -306,21 +306,20 @@
     const done = parts.reduce((a, p) => a + p.done, 0);
     return { parts, goal, done };
   }
-  // Generic version of qaBreakdown for any track (used on weekends so LR/DI/VARC catch-up
-  // spreads the week's leftover across their chapters, exactly like QA does).
+  // Weekend catch-up breakdown: spread the week's leftover EVENLY (round-robin) across a track's
+  // chapters, capped at each chapter's remaining — so it distributes instead of dumping into topic #1.
   function trackBreakdown(sub, dateKey, goalWanted) {
     const rec = S.days[dateKey] || {};
     const logged = (ch) => (rec.qa || {})[ch.id] || 0;
-    const order = trackChs(sub).map((ch) => ({ ch, st: Score.chapterStats(ch) })).sort((a, b) => (a.ch.ord ?? 99) - (b.ch.ord ?? 99));
-    let need = goalWanted; const parts = [];
-    for (const x of order) {
-      if (need <= 0) break;
-      const cap = x.st.remaining + logged(x.ch);
-      if (cap <= 0) continue;
-      const target = Math.min(need, cap);
-      parts.push({ ch: x.ch, target, done: Math.min(logged(x.ch), target) });
-      need -= target;
+    const items = trackChs(sub)
+      .map((ch) => ({ ch, cap: Score.chapterStats(ch).remaining + logged(ch), n: 0 }))
+      .filter((x) => x.cap > 0)
+      .sort((a, b) => (a.ch.ord ?? 99) - (b.ch.ord ?? 99));
+    let need = goalWanted, g = 0;
+    while (need > 0 && items.some((x) => x.n < x.cap) && g++ < 9000) {
+      for (const x of items) { if (need <= 0) break; if (x.n < x.cap) { x.n++; need--; } }
     }
+    const parts = items.filter((x) => x.n > 0).map((x) => ({ ch: x.ch, target: x.n, done: Math.min(logged(x.ch), x.n) }));
     return { parts, goal: parts.reduce((a, p) => a + p.target, 0), done: parts.reduce((a, p) => a + p.done, 0) };
   }
   // What a track can still take today, for weekend catch-up = min(week leftover, its total remaining incl. today).
@@ -348,14 +347,25 @@
     // On weekends every subject distributes across its chapters (catch-up); on weekdays QA/Vocab do too.
     if (sub === "qa" || sub === "vocab" || (wknd && (sub === "lr" || sub === "di" || sub === "varc"))) {
       const chs = trackChs(sub);
-      const order = chs
-        .map((ch) => ({ ch, room: Score.chapterStats(ch).remaining + ((r.qa || {})[ch.id] || 0) }))
+      const items = chs
+        .map((ch) => ({ ch, room: Score.chapterStats(ch).remaining + ((r.qa || {})[ch.id] || 0), n: 0 }))
+        .filter((x) => x.room > 0)
         .sort((a, b) => (a.ch.ord ?? 99) - (b.ch.ord ?? 99));
       chs.forEach((c) => { delete qa[c.id]; });
       let need = n;
-      for (const x of order) { if (need <= 0) break; const add = Math.min(need, x.room); if (add > 0) { qa[x.ch.id] = add; need -= add; } }
+      if (wknd) {
+        // even round-robin so catch-up logging spreads across chapters (matches the breakdown shown)
+        let g = 0;
+        while (need > 0 && items.some((x) => x.n < x.room) && g++ < 9000) {
+          for (const x of items) { if (need <= 0) break; if (x.n < x.room) { x.n++; need--; } }
+        }
+        items.forEach((x) => { if (x.n > 0) qa[x.ch.id] = x.n; });
+      } else {
+        // weekday: fill in chapter order (matches qaBreakdown)
+        for (const x of items) { if (need <= 0) break; const add = Math.min(need, x.room); if (add > 0) { qa[x.ch.id] = add; need -= add; } }
+      }
       doneNow = n - need;
-      goal = sub === "qa" ? (qaBreakdown(UI.dateKey)?.goal || 1)
+      goal = sub === "qa" ? (wknd ? weekendGoal("qa", UI.dateKey) : (qaBreakdown(UI.dateKey)?.goal || 1))
         : sub === "vocab" ? (wknd ? (planFor("vocab", UI.dateKey)?.dailyTarget || 1) : 1)
         : (weekendGoal(sub, UI.dateKey) || 1);
     } else if (sub === "lr" || sub === "di" || sub === "varc") {
@@ -496,9 +506,14 @@
         if (!p) return { sub, missing: true, goal: 0, done: 0, label: "load plan in Study tab", note: "" };
         if (p.done) return { sub, goal: 0, done: 0, label: "all done 🎉", note: "" };
         if (sub === "qa") {
+          if (wknd) {
+            const g = weekendGoal("qa", UI.dateKey);
+            if (g <= 0) return { sub, goal: 0, done: 0, label: "all clear ✓", note: "" };
+            const bd = trackBreakdown("qa", UI.dateKey, g);
+            return { sub, goal: bd.goal, done: bd.done, label: `${bd.goal} Qs to catch up`, breakdown: bd.parts };
+          }
           const bd = qaBreakdown(UI.dateKey);
-          if (wknd && bd.goal <= 0) return { sub, goal: 0, done: bd.done, label: "all clear ✓", note: "" };
-          return { sub, goal: bd.goal, done: bd.done, label: wknd ? `${bd.goal} Qs to catch up` : `${bd.goal} questions today`, breakdown: bd.parts };
+          return { sub, goal: bd.goal, done: bd.done, label: `${bd.goal} questions today`, breakdown: bd.parts };
         }
         // vocab
         const vgoal = wknd ? (p.dailyTarget || 0) : 1;
